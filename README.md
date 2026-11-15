@@ -7,3 +7,11 @@
 ## Project Instructions
 
 The project instructions are contained in [tree_propagation.pdf](./docs/tree_propagation.pdf).
+
+# Streamlit
+
+Launch the streamlit app:
+
+```sh
+streamlit run app.py
+```

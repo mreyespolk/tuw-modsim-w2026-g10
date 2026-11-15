@@ -1,0 +1,13 @@
+pytest
+pandas
+numpy
+plotly
+seaborn
+matplotlib
+jupyter
+jupyterlab
+jupyter-server
+ipykernel
+streamlit
+scikit-learn
+scipy

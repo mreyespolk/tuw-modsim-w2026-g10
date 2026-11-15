@@ -13,19 +13,18 @@ class WindDirection(Enum):
     W = 270
     NW = 315
 
-
 @dataclass(frozen=True)
 class WindRose:
     probabilities: dict[WindDirection, float]
 
     def __post_init__(self) -> None:
+        if any(p < 0.0 for p in self.probabilities.values()):
+            raise ValueError("Probabilities must always be greater than or equal to 0.")
         total = sum(self.probabilities.values())
         if not math.isclose(total, 1.0, rel_tol=1e-9):
             raise ValueError(f"WindRose probabilities must sum to 1.0, got {total}")
-        if len(self.probabilities.keys()) != 8:
+        if len(self.probabilities) != 8:
             raise ValueError(f"Wind Rose must have probabilities for 8 cardinal directions. {WindDirection}")
-        if any(self.probabilities < 0.0):
-            raise ValueError("Probabilities must always be greater than or equal to 0.")
         
 
 

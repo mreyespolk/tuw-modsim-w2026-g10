@@ -111,9 +111,13 @@ def plot_seed_shadow_and_distance(
             marker={
                 "size": 4,
                 "color": plot_dists,
-                "colorscale": "Plasma_r",
-                #"colorscale": "Viridis_r",
-                "reversescale": True,
+                "colorscale": [
+                    [0.0, "#021a0b"],   # medium pale green
+                    [0.25, "#00441b"],  # fresh medium green
+                    [0.55, "#1b7837"],  # deep forest green
+                    [0.8, "#5ab467"],   # very dark green
+                    [1.0, "#a1d99b"],   # almost-black green
+                ],
                 "opacity": 0.65,
                 "colorbar": {"title": "Distance [m]", "x": 0.44, "len": 0.85},
             },

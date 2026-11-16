@@ -33,7 +33,7 @@ class TreeConfig:
             ) and
             (
                 self.mean_dispersal_distance is None or
-                self.mean_dispersal_distance < 0
+                self.mean_dispersal_distance <= 0
             )
         ):
             raise ValueError("ANIMAL and GRAVITY dispersal require positive 'mean_dispersal_distance'.")

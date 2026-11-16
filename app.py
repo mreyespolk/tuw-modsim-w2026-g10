@@ -20,6 +20,13 @@ from src.tree_propagation.wind_config import DEFAULT_WIND_ROSE
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+def random_seed_callback():
+    st.session_state.seed = int(np.random.default_rng().integers(0, 1_000_000))
+
+
+st.session_state.setdefault("seed", DEFAULT_RANDOM_SEED)
+
 st.set_page_config(page_title="Seed Dispersal Explorer", layout="wide")
 st.title("Tree Seed Shadow Simulator")
 
@@ -31,11 +38,25 @@ def get_tree_configs(csv_path: str) -> dict[str, TreeConfig]:
 configs = get_tree_configs("./data/trees_vienna.csv")
 
 with st.sidebar:
+<<<<<<< HEAD
     seed = st.number_input(label="Seed", value=10)
     if seed is None:
         rng = np.random.default_rng(DEFAULT_RANDOM_SEED)
     else: 
         rng = np.random.default_rng(seed)
+=======
+    seed_cols = st.columns([0.6, 0.4], vertical_alignment="bottom")
+    with seed_cols[0]:
+        seed = st.number_input(
+            label="Seed",
+            min_value=0,
+            step=1,
+            key="seed",
+        )
+    with seed_cols[1]:
+        st.button("New seed", on_click=random_seed_callback, use_container_width=True)
+    rng = np.random.default_rng(st.session_state["seed"])
+>>>>>>> dev-MRP
     species = st.selectbox("Species", list(configs.keys()))
     selected_config = configs[species]
 
@@ -69,7 +90,7 @@ metrics = evaluate_seed_shadow(res)
 
 col_rose, col_metrics = st.columns([0.42, 0.58], vertical_alignment="center")
 with col_rose:
-    st.plotly_chart(plot_wind_rose(DEFAULT_WIND_ROSE), use_container_width=True)
+    st.plotly_chart(plot_wind_rose(DEFAULT_WIND_ROSE), width="stretch")
     st.table(windrose_to_dataframe(DEFAULT_WIND_ROSE))
 
 with col_metrics:

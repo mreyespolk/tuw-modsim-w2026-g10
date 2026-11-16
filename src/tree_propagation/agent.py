@@ -27,8 +27,8 @@ class TreeAgent:
 
     def _validate_init_params(self):
         if (
-            (self.age < 0 or self.age is None) or 
-            (self.height_class < 0 or self.height_class is None)
+            (self.age is None or self.age < 0) or 
+            (self.height_class is None or self.height_class < 0)
         ):
             raise ValueError("Age and Height class must be non negative.")
         

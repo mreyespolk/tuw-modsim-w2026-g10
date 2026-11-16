@@ -10,8 +10,8 @@ from src.tree_propagation.metrics import evaluate_seed_shadow
 from src.tree_propagation.simulation import simulate_seed_shadow
 from src.tree_propagation.tree_config import TreeConfig, load_tree_configs
 from src.tree_propagation.utils import windrose_to_dataframe
-from src.tree_propagation.visualization import (
-    plot_seed_shadow_and_distance,
+from src.tree_propagation.visualization_plotly import (
+    plot_simulated_seed_shadow_and_distance_histogram,
     plot_wind_rose,
 )
 from src.tree_propagation.wind_config import DEFAULT_WIND_ROSE
@@ -87,7 +87,7 @@ with col_metrics:
     )
 
 if not res.is_empty:
-    st.plotly_chart(plot_seed_shadow_and_distance(result=res, metrics=metrics), use_container_width=True)
+    st.plotly_chart(plot_simulated_seed_shadow_and_distance_histogram(result=res, metrics=metrics), use_container_width=True)
 else:
     st.warning("Zero seeds were produced across the simulated instances. Increase N or height class.")
 

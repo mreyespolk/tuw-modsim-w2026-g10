@@ -77,7 +77,7 @@ with col_metrics:
         f"{metrics.total_seeds:,}",
         f"avg {metrics.mean_seeds_per_instance:.1f} / run",
     )
-    c1.metric("Theoretical Mean (r̄)", f"{metrics.theoretical_r_bar:.3f} m")
+    c1.metric("Theoretical Mean (r̄)", f"{metrics.theoretical_mean_radius:.3f} m")
     c2.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
     c2.metric(
         "Simulated Mean",

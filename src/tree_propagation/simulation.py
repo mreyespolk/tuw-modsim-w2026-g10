@@ -18,7 +18,7 @@ def simulate_seed_shadow(
     rng = rng or np.random.default_rng(10)
     strategy = get_dispersal_strategy(config, wind_rose=environment_state.wind_rose)
 
-    theoretical_r_bar = strategy.mean_distance(
+    theoretical_mean_radius = strategy.mean_distance(
         config=config,
         height_class=height_class,
         wind_strength=environment_state.wind_strength,
@@ -65,5 +65,5 @@ def simulate_seed_shadow(
         ys=all_ys,
         distances=all_distances,
         seed_counts_per_instance=tuple(agent.seed_production_history),
-        theoretical_r_bar=theoretical_r_bar,
+        theoretical_mean_radius=theoretical_mean_radius
     )

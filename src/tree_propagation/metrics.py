@@ -14,7 +14,7 @@ def evaluate_seed_shadow(result: SeedShadowResult) -> SeedShadowMetrics:
         return SeedShadowMetrics(
             total_seeds=0,
             mean_seeds_per_instance=mean_per_instance,
-            theoretical_r_bar=result.theoretical_r_bar,
+            theoretical_mean_radius=result.theoretical_mean_radius,
             empirical_r_bar=float("nan"),
             rel_error_pct=float("nan"),
             ks_statistic=float("nan"),
@@ -22,13 +22,13 @@ def evaluate_seed_shadow(result: SeedShadowResult) -> SeedShadowMetrics:
         )
 
     empirical_r_bar = float(np.mean(result.distances))
-    rel_error_pct = abs(empirical_r_bar - result.theoretical_r_bar) / result.theoretical_r_bar * 100.0
-    ks_res = stats.kstest(result.distances, "expon", args=(0, result.theoretical_r_bar))
+    rel_error_pct = abs(empirical_r_bar - result.theoretical_mean_radius) / result.theoretical_mean_radius * 100.0
+    ks_res = stats.kstest(result.distances, "expon", args=(0, result.theoretical_mean_radius))
 
     return SeedShadowMetrics(
         total_seeds=result.total_seeds,
         mean_seeds_per_instance=mean_per_instance,
-        theoretical_r_bar=result.theoretical_r_bar,
+        theoretical_mean_radius=result.theoretical_mean_radius,
         empirical_r_bar=empirical_r_bar,
         rel_error_pct=rel_error_pct,
         ks_statistic=float(ks_res.statistic),

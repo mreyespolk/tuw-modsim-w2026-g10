@@ -2,6 +2,8 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
+import seaborn as sns
+from matplotlib import patches
 from plotly.subplots import make_subplots
 
 from src.tree_propagation.dispersal import DispersalType
@@ -91,6 +93,78 @@ def _nice_colorbar_ticks(cmax: float, target_ticks: int = 6) -> list[float]:
     ticks = np.arange(0, cmax + nice_step * 0.5, nice_step)
     return [round(float(t), 10) for t in ticks if t <= cmax * 1.001]
 
+def draw_wind_rose_boundaries(ax: plt.Axes, max_extent: float, **style_kwargs) -> None: # type: ignore
+    """Draws radial wind sector boundary rays from (0, 0) out past max_extent."""
+    style = {
+        "color": "gray",
+        "linewidth": 1,
+        "linestyle": "--",
+        "alpha": 0.6,
+        "zorder": 1,
+        **style_kwargs,
+    }
+
+    for boundary_deg in np.arange(22.5, 360.0, 45.0):
+        rad = np.deg2rad(boundary_deg)
+        ax.plot(
+            [0, max_extent * 1.1 * np.sin(rad)],
+            [0, max_extent * 1.1 * np.cos(rad)],
+            **style
+        )
+
+def draw_compass_labels(ax: plt.Axes, margin: float = 0.03, **style_kwargs) -> None: # type: ignore
+    """Pins N/S/E/W labels to the inner edges of an Axes frame."""
+    style = {
+        "ha": "center",
+        "va": "center",
+        "fontweight": "bold",
+        "color": "dimgray",
+        "fontsize": 11,
+        "zorder": 5,
+        **style_kwargs,
+    }
+    positions = [
+        ("N", (0.5, 1.0 - margin)),
+        ("S", (0.5, margin)),
+        ("E", (1.0 - margin, 0.5)),
+        ("W", (margin, 0.5)),
+    ]
+    for label, (lx, ly) in positions:
+        ax.text(lx, ly, label, transform=ax.transAxes, **style)
+
+def draw_parent(ax: plt.Axes, origin: tuple = (0.0, 0.0), **style_kwargs) -> None: # type: ignore
+     x0, y0 = origin
+
+     style = {
+        "marker": "X",
+        "s": 10,
+        "facecolor": "deeppink",
+        "edgecolor": "black",
+        "linewidth": 1.2,
+        "label": f"Parent Tree ({x0:g}, {y0:g})",
+        "zorder": 4,
+        **style_kwargs,
+    }
+     ax.scatter(
+        [x0],
+        [y0],
+        **style
+    )
+
+def draw_mean_radius(ax: plt.Axes, mean_radius: float, origin: tuple = (0.0, 0.0)) -> None: # type: ignore
+    ax.add_patch(
+        patches.Circle(
+            origin,
+            radius=mean_radius,
+            fill=False,
+            edgecolor="red",
+            alpha=0.75,
+            linewidth=2,
+            label=f"Theoretical Mean ({mean_radius:.2f} m)",
+            zorder=3,
+        )
+    )
+
 def plot_seed_shadow_and_distance(
     result: SeedShadowResult, metrics: SeedShadowMetrics, max_scatter_points: int = 100_000
 ) -> go.Figure:
@@ -107,7 +181,7 @@ def plot_seed_shadow_and_distance(
 
     xs, ys = result.xs, result.ys
     dists = result.distances
-    r_bar = result.theoretical_r_bar
+    r_bar = result.theoretical_mean_radius
 
     empirical_mean = (
         metrics.empirical_r_bar
@@ -289,8 +363,8 @@ def plot_seed_shadow_and_distance(
         line_color="black",
         annotation_text=f"Sample mean = {empirical_mean:.2f} m",
         annotation_position="top right",
-        row=1,
-        col=2,
+        row="1",
+        col="2",
     )
 
     fig.update_xaxes(title_text="Distance r [m]", row=1, col=2)
@@ -308,91 +382,148 @@ def plot_seed_shadow_and_distance(
 
     return fig
 
-#def plot_seed_shadow_and_distance_static(result: SeedShadowResult) -> plt.Figure:
-#    """Creates a side-by-side 2D seed shadow (log-scaled hexbin) and exponential distance check."""
-#    fig, (ax_map, ax_dist) = plt.subplots(1, 2, figsize=(12, 5))
-#    
-#
-#    # 2D Seed Shadow with log color scale so outer plumes are clearly visible
-#    hb = ax_map.hexbin(
-#        result.xs,
-#        result.ys,
-#        gridsize=100,
-#        #cmap="YlGnBu",
-#        #cmap="plasma",
-#        cmap=_truncated_cmap("Greens", minval=0.25, maxval=1.10),
-#        bins="log",
-#        mincnt=1,
-#    )
-#    ax_map.scatter([0], [0], color="pink", marker="X", s=10, label="Parent Tree (0, 0)", zorder=5)
-#
-#    # Center (0, 0) symmetrically so visual orientation isn't skewed
-#    max_extent = max(np.abs(result.xs).max(), np.abs(result.ys).max()) * 1.05
-#    if result.dispersal_type == DispersalType.WIND:
-#        for boundary_deg in np.arange(22.5, 360.0, 45.0):
-#            rad = np.deg2rad(boundary_deg)
-#            # Extend slightly past max_extent so rays cleanly reach the plot frame
-#            x_end = max_extent * 1.5 * np.sin(rad)
-#            y_end = max_extent * 1.5 * np.cos(rad)
-#            ax_map.plot(
-#                [0, x_end],
-#                [0, y_end],
-#                color="gray",
-#                linestyle="--",
-#                linewidth=1.0,
-#                alpha=0.75,
-#                zorder=3,
-#            )
-#    ax_map.set_xlim(-max_extent, max_extent)
-#    ax_map.set_ylim(-max_extent, max_extent)
-#    ax_map.set_aspect("equal", adjustable="box")
-#
-#    mean_ring = plt.Circle(
-#        (0, 0),
-#        result.theoretical_r_bar,
-#        color="red",
-#        fill=False,
-#        linestyle="-",
-#        linewidth=2.0,
-#        alpha=0.9,
-#        zorder=4,
-#        label=f"Theoretical Mean ({result.theoretical_r_bar:.2f}m)"
-#    )
-#    ax_map.add_patch(mean_ring)
-#
-#    # Add explicit compass markers (North = Up)
-#    #ax_map.axhline(0, color="gray", lw=0.6, ls="--", alpha=0.5)
-#    #ax_map.axvline(0, color="gray", lw=0.6, ls="--", alpha=0.5)
-#    for label, (lx, ly) in [("N", (0.5, 0.96)), ("S", (0.5, 0.04)), ("E", (0.96, 0.5)), ("W", (0.04, 0.5))]:
-#        ax_map.text(
-#            lx, ly, label, transform=ax_map.transAxes,
-#            ha="center", va="center", fontweight="bold", color="dimgray",
-#        )
-#
-#    ax_map.set_title(f"{result.species} ({result.dispersal_type}) — 2D Seed Shadow")
-#    ax_map.set_xlabel("x [m]\n(East →)")
-#    ax_map.set_ylabel("y [m]\n(North ↑)", rotation=0, labelpad=30)
-#    ax_map.legend(loc="upper right")
-#    fig.colorbar(hb, ax=ax_map, label="Seed count (log10)")
-#
-#    # Distance Histogram vs Theoretical Exponential PDF
-#    dists = result.distances
-#    r_bar = result.theoretical_r_bar
-#    ax_dist.hist(dists, bins=60, density=True, alpha=0.6, color="steelblue", label="Simulated")
-#
-#    x_grid = np.linspace(0, np.percentile(dists, 99.5), 300)
-#    pdf = (1.0 / r_bar) * np.exp(-x_grid / r_bar)
-#    ax_dist.plot(x_grid, pdf, "r--", lw=2, label=f"Exp PDF ($\\bar{{r}}={r_bar:.2f}$ m)")
-#    ax_dist.axvline(
-#        result.empirical_r_bar, color="black", linestyle=":",
-#        label=f"Sample mean = {result.empirical_r_bar:.2f} m",
-#    )
-#
-#    ax_dist.set_title("Dispersal Distance Distribution")
-#    ax_dist.set_xlabel("Distance r [m]")
-#    ax_dist.set_ylabel("Probability Density")
-#    ax_dist.legend()
-#
-#    plt.tight_layout()
-#    plt.close(fig)
-#    return fig
+def plot_simulated_seed_shadow_and_distance_histogram(
+        result: SeedShadowResult, size: tuple[int, int] = (12, 8)
+) -> plt.Figure: # type: ignore
+    fig, (ax_scatter, ax_distance) = plt.subplots(
+            1, 2,
+            figsize=size,
+            facecolor="#FFFFFF",
+            gridspec_kw={"wspace": 0.25},
+    )
+    fig.suptitle(
+        f"Seed shadow and dispersal distance\n(Species={result.species}, Simulations={result.num_instances})",
+        fontsize=14,
+        fontweight="bold",
+        y=0.96,  # Adjust vertical spacing slightly above the plots
+    )
+
+    plot_seed_shadow(result=result, ax_scatter=ax_scatter)
+    plot_distance_histogram(result=result, ax_distance=ax_distance)
+
+    ax_distance.set_box_aspect(1)
+
+    return fig
+
+def plot_distance_histogram(
+        result: SeedShadowResult, ax_distance: plt.Axes | None, size: tuple[int, int] = (12, 12), **style_kwargs # type: ignore
+) -> plt.Axes: # type: ignore
+    if ax_distance is None:
+        _fig, ax_distance = plt.subplots(
+            1,
+            figsize=size,
+            facecolor="#FFFFFF",
+        )
+        plt.title(f"Dispersal distance histogram for species {result.species}")
+
+    dists = np.hypot(result.xs, result.ys)
+    r_bar = result.theoretical_mean_radius
+    empirical_mean = float(np.mean(dists))
+
+    # Histogram (replicates go.Histogram)
+    sns.histplot(
+        x=dists,
+        bins=60,
+        binrange=(0, dists.max()),
+        stat="density",
+        color="steelblue",
+        alpha=0.6,
+        edgecolor="white",  # Optional: gives clean separation like Plotly bars
+        linewidth=0.5,
+        label="Simulated",
+        ax=ax_distance,
+    )
+
+    # Theoretical Exponential PDF
+    x_grid = np.linspace(0, np.percentile(dists, 99.5), 300)
+    pdf = (1.0 / r_bar) * np.exp(-x_grid / r_bar)
+    ax_distance.plot(
+        x_grid,
+        pdf,
+        color="red",
+        linewidth=2,
+        linestyle="--",
+        label=f"Exp PDF (r̄ = {r_bar:.2f} m)",
+    )
+
+    # Empirical mean vertical line + annotation (replicates fig.add_vline)
+    ax_distance.axvline(
+        x=empirical_mean,
+        color="black",
+        linewidth=2,
+        linestyle=":",
+    )
+    ax_distance.annotate(
+        f"Sample mean = {empirical_mean:.2f} m",
+        xy=(empirical_mean, 1.0),
+        xycoords=("data", "axes fraction"),
+        xytext=(6, -6),
+        textcoords="offset points",
+        ha="left",
+        va="top",
+        color="black",
+    )
+
+    # Axes labels, limits, and legend
+    ax_distance.set_xlim(left=0)
+    ax_distance.set_xlabel("Distance r [m]",
+                           fontweight="bold",
+    )
+    ax_distance.set_ylabel("Probability Density",
+                           fontweight="bold",
+    )
+    ax_distance.legend()
+
+    return ax_distance
+
+def plot_seed_shadow(
+        result: SeedShadowResult, ax_scatter: plt.Axes | None, size: tuple[int, int] = (12, 12), **style_kwargs # type: ignore
+) -> plt.Axes: # type: ignore
+    style = {
+        "s": 3,
+        "alpha": 0.15,
+        "linewidth": 1,
+        "edgecolors": "black",
+        "color": "green",
+        **style_kwargs
+    }
+    
+    if ax_scatter is None:
+        _fig, ax_scatter = plt.subplots(
+            1,
+            figsize=size,
+            facecolor="#FFFFFF",
+            gridspec_kw={"wspace": 0.25},
+        )
+        plt.title(f"Seed shadow for species {result.species}")
+
+    xs, ys = result.xs, result.ys
+    max_extent = max(np.abs(xs).max(), np.abs(ys).max()) * 1.05
+
+    ax_scatter.set_facecolor("#FDF1D6")
+    sns.scatterplot(x=result.xs,
+                    y=result.ys,
+                    ax=ax_scatter,
+                    label="seeds",
+                    **style
+    )
+    ax_scatter.set_xlim(-max_extent, max_extent)
+    ax_scatter.set_ylim(-max_extent, max_extent)
+    ax_scatter.set_xlabel("X\n(W <- -> E)",
+                          fontweight="bold",
+    )
+    ax_scatter.set_ylabel("Y\n(S ↓ ↑ N)",
+                          rotation=0,
+                          fontweight="bold",
+                          labelpad=22,
+                          va="center",
+    )
+
+    if result.dispersal_type == DispersalType.WIND:
+        draw_wind_rose_boundaries(ax=ax_scatter, max_extent=max_extent)
+    draw_compass_labels(ax=ax_scatter)
+    draw_parent(ax=ax_scatter, s=20)
+    draw_mean_radius(ax=ax_scatter, mean_radius=result.theoretical_mean_radius)
+    ax_scatter.set_aspect('equal', 'box')
+
+    return ax_scatter

@@ -176,7 +176,7 @@ def plot_simulated_seed_shadow_and_distance_histogram(
 
     # Wind sector boundary rays
     if result.dispersal_type == DispersalType.WIND:
-        for x1, y1 in compute_sector_boundary_endpoints(max_extent, scale=1.5):
+        for x1, y1 in compute_sector_boundary_endpoints(max_extent, scale=1.1):
             fig.add_shape(
                 type="line",
                 x0=0,

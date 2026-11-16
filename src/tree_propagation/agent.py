@@ -18,7 +18,6 @@ class TreeAgent:
             height_class: int = 0,
             x: int = 0,
             y: int = 0,
-            history: DispersalHistory | None = None
             
     ) -> None:
         self.species_config = species_config

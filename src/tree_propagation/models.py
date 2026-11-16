@@ -36,7 +36,7 @@ class SeedShadowMetrics:
     total_seeds: int
     mean_seeds_per_instance: float
     theoretical_mean_radius: float
-    empirical_r_bar: float
+    empirical_mean_radius: float
     rel_error_pct: float
     ks_statistic: float
     ks_pvalue: float

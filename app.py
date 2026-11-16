@@ -49,7 +49,7 @@ with st.sidebar:
         [(k, "—" if v is None else str(v)) for k, v in asdict(selected_config).items()],
         columns=["Property", "Value"],
     )
-    styled_df = df.style.map(lambda _: "font-weight: bold", subset=pd.IndexSlice[:, ["Property"]])
+    styled_df = df.style.map(lambda _: "font-weight: bold", subset=pd.IndexSlice[:, ["Property"]])  # type: ignore
     st.dataframe(
         styled_df,
         column_config={"Property": st.column_config.MarkdownColumn("Property")},
@@ -81,7 +81,7 @@ with col_metrics:
     c2.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
     c2.metric(
         "Simulated Mean",
-        f"{metrics.empirical_r_bar:.3f} m",
+        f"{metrics.empirical_mean_radius:.3f} m",
         f"{metrics.rel_error_pct:.2f}% err",
         delta_color="off",
     )

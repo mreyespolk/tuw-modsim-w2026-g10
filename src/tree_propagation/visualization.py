@@ -1,4 +1,3 @@
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
@@ -10,14 +9,6 @@ from src.tree_propagation.dispersal import DispersalType
 from src.tree_propagation.models import SeedShadowMetrics, SeedShadowResult
 from src.tree_propagation.wind_config import WindRose
 
-
-def _truncated_cmap(cmap_name: str = "YlGnBu", minval: float = 0.25, maxval: float = 1.0):
-    """Clips the pale bottom end of a colormap so low-count bins remain clearly visible."""
-    base = plt.get_cmap(cmap_name)
-    return mcolors.LinearSegmentedColormap.from_list(
-        f"trunc_{cmap_name}",
-        base(np.linspace(minval, maxval, 256)),
-    )
 
 def plot_wind_rose(wind_rose: WindRose) -> go.Figure:
     """Creates a polar wedge chart showing incoming wind probabilities by compass sector."""
@@ -183,11 +174,7 @@ def plot_seed_shadow_and_distance(
     dists = result.distances
     r_bar = result.theoretical_mean_radius
 
-    empirical_mean = (
-        metrics.empirical_r_bar
-        if metrics is not None
-        else float(np.mean(result.distances))
-    )
+    empirical_mean = metrics.empirical_mean_radius
 
     # Subsample only if total seeds exceed max_scatter_points so browser WebGL stays responsive
     if len(xs) > max_scatter_points:
@@ -200,9 +187,6 @@ def plot_seed_shadow_and_distance(
     cmax_m = float(np.percentile(plot_dists, 98))
     color_vals = np.clip(plot_dists, 0, cmax_m) ** power
     tick_vals_m = _nice_colorbar_ticks(cmax_m)
-
-    tick_candidates = [0, 1, 2, 4, 7, 10, 14, 20, 30]
-    tick_vals_m = [t for t in tick_candidates if t <= cmax_m]
 
     # Gradual 8-stop scale
     gradual_greens = [

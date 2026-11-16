@@ -1,7 +1,6 @@
 import numpy as np
 
 from src.tree_propagation.agent import TreeAgent
-from src.tree_propagation.dispersal import get_dispersal_strategy
 from src.tree_propagation.environment import EnvironmentState
 from src.tree_propagation.models import SeedShadowResult
 from src.tree_propagation.tree_config import TreeConfig
@@ -16,13 +15,6 @@ def simulate_seed_shadow(
 ) -> SeedShadowResult:
     """Simulates seed production and spatial dispersal for a single parent tree."""
     rng = rng or np.random.default_rng(10)
-    strategy = get_dispersal_strategy(config, wind_rose=environment_state.wind_rose)
-
-    theoretical_mean_radius = strategy.mean_distance(
-        config=config,
-        height_class=height_class,
-        wind_strength=environment_state.wind_strength,
-    )
 
     agent = TreeAgent(
         species_config=config,
@@ -36,12 +28,13 @@ def simulate_seed_shadow(
     ys_list: list[np.ndarray] = []
     distances_list: list[np.ndarray] = []
 
+    theoretical_mean_radius = agent.mean_dispersal_distance(environment_state)
+
     for _ in range(num_instances):
         agent.produce_seeds(rng=rng)
         xs, ys, distances = agent.disperse_seeds(
             rng=rng,
-            strategy=strategy,
-            wind_strength=environment_state.wind_strength,
+            environment_state=environment_state,
         )
         if distances.size > 0:
             xs_list.append(xs)

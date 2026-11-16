@@ -1,6 +1,11 @@
 import numpy as np
 
-from src.tree_propagation.dispersal import DispersalStrategy, get_dispersal_strategy
+from src.tree_propagation.dispersal import (
+    compute_mean_dispersal_distance,
+    empty_dispersal_result,
+    sample_dispersal_offsets,
+)
+from src.tree_propagation.environment import EnvironmentState
 from src.tree_propagation.tree_config import TreeConfig
 
 
@@ -61,6 +66,13 @@ class TreeAgent:
     def is_mature(self):
         return self.age >= self.species_config.maturity_age
 
+    def mean_dispersal_distance(self, environment_state: EnvironmentState) -> float:
+        return compute_mean_dispersal_distance(
+            config=self.species_config,
+            height_class=self.height_class,
+            environment=environment_state,
+        )
+
     def grow(self):
         raise NotImplementedError
 
@@ -81,21 +93,19 @@ class TreeAgent:
     def disperse_seeds(
         self,
         rng: np.random.Generator,
-        strategy: DispersalStrategy | None = None,
-        wind_strength: int | None = None,
+        environment_state: EnvironmentState,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Disperses all seeds currently held by this tree and resets its seed stock."""
         if self.seeds <= 0:
-            empty = np.array([], dtype=float)
-            return empty, empty, empty
+            return empty_dispersal_result()
 
-        active_strategy = strategy or get_dispersal_strategy(self.species_config)
-        dx, dy, distances = active_strategy.sample(
+        r_bar = self.mean_dispersal_distance(environment_state)
+        dx, dy, distances = sample_dispersal_offsets(
             count=self.seeds,
-            config=self.species_config,
-            height_class=self.height_class,
+            mean_distance=r_bar,
+            dispersal_type=self.species_config.dispersal_type,
             rng=rng,
-            wind_strength=wind_strength,
+            wind_rose=environment_state.wind_rose,
         )
         self.seeds = 0
         return self.x + dx, self.y + dy, distances

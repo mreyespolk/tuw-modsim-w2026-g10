@@ -2,6 +2,8 @@ import math
 from dataclasses import dataclass
 from enum import Enum
 
+import numpy as np
+
 
 class WindDirection(Enum):
     N = 0
@@ -25,6 +27,18 @@ class WindRose:
             raise ValueError(f"WindRose probabilities must sum to 1.0, got {total}")
         if len(self.probabilities) != 8:
             raise ValueError(f"Wind Rose must have probabilities for 8 cardinal directions. {WindDirection}")
+
+    def sample_downwind_radians(self, count: int, rng: np.random.Generator) -> np.ndarray:
+        """Samples downwind travel bearings (radians clockwise from North)."""
+        directions = list(self.probabilities.keys())
+        base_angles = np.array([d.value for d in directions], dtype=float)
+        probs = np.array([self.probabilities[d] for d in directions], dtype=float)
+        half_sector = 180.0 / len(directions)  # 22.5° for an 8-sector compass
+
+        # Wind rose angles denote where wind blows *from*; add 180° for downwind travel
+        from_angles = rng.choice(base_angles, size=count, p=probs)
+        jitter = rng.uniform(-half_sector, half_sector, size=count)
+        return np.deg2rad((from_angles + jitter + 180.0) % 360.0)
         
 
 

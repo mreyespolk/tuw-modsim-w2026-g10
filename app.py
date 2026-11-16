@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from src.tree_propagation.consts import DEFAULT_RANDOM_SEED
 from src.tree_propagation.environment import EnvironmentState
 from src.tree_propagation.metrics import evaluate_seed_shadow
 from src.tree_propagation.simulation import simulate_seed_shadow
@@ -22,10 +23,6 @@ logger = logging.getLogger(__name__)
 st.set_page_config(page_title="Seed Dispersal Explorer", layout="wide")
 st.title("Tree Seed Shadow Simulator")
 
-RANDOM_SEED = 10
-rng = np.random.default_rng(RANDOM_SEED)
-
-
 @st.cache_data
 def get_tree_configs(csv_path: str) -> dict[str, TreeConfig]:
     return load_tree_configs(csv_path)
@@ -34,6 +31,11 @@ def get_tree_configs(csv_path: str) -> dict[str, TreeConfig]:
 configs = get_tree_configs("./data/trees_vienna.csv")
 
 with st.sidebar:
+    seed = st.number_input(label="Seed", value=10)
+    if not seed:
+        rng = np.random.default_rng(DEFAULT_RANDOM_SEED)
+    else: 
+        rng = np.random.default_rng(seed)
     species = st.selectbox("Species", list(configs.keys()))
     selected_config = configs[species]
 

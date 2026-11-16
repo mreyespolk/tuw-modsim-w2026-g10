@@ -32,7 +32,7 @@ configs = get_tree_configs("./data/trees_vienna.csv")
 
 with st.sidebar:
     seed = st.number_input(label="Seed", value=10)
-    if not seed:
+    if seed is None:
         rng = np.random.default_rng(DEFAULT_RANDOM_SEED)
     else: 
         rng = np.random.default_rng(seed)

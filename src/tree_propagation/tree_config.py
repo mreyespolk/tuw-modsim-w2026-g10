@@ -5,7 +5,7 @@ from pathlib import Path
 from src.tree_propagation.types import DispersalType
 
 
-@dataclass
+@dataclass(frozen=True)
 class TreeConfig:
     species_name: str
     dispersal_type: DispersalType
@@ -17,6 +17,27 @@ class TreeConfig:
     maximal_height_class: int
     mean_life_span: int
     shade_tolerance: float
+
+    def __post_init__(self):
+        if (self.dispersal_type == DispersalType.WIND and 
+            (
+                self.wind_spreading_factor is None or
+                self.wind_spreading_factor <= 0
+            )
+        ):
+            raise ValueError("WIND dispersal requires positive 'wind_spreading_factor'.")
+        if (
+            (
+                self.dispersal_type == DispersalType.ANIMAL or
+                DispersalType.GRAVITY
+            ) and
+            (
+                self.mean_dispersal_distance is None
+            )
+        ):
+            raise ValueError("ANIMAL and GRAVITY dispersal require positive 'mean_dispersal_distance'.")
+
+
 
 def load_tree_configs(csv_path: str | Path) -> dict[str, TreeConfig]:
     """Loads tree species configurations from a CSV file, keyed by species name."""

@@ -2,7 +2,6 @@ import numpy as np
 
 from src.tree_propagation.dispersal import DispersalStrategy, get_dispersal_strategy
 from src.tree_propagation.tree_config import TreeConfig
-from src.tree_propagation.types import DispersalType
 
 
 class TreeAgent:
@@ -27,15 +26,12 @@ class TreeAgent:
         self._validate_init_params()
 
     def _validate_init_params(self):
-        if self.age < 0 or self.height_class < 0:
-            raise ValueError("Age and Height class must be non negative.")
-        if (self.species_config.dispersal_type == DispersalType.WIND and 
-            (
-                self.species_config.wind_spreading_factor is None or
-                self.species_config.wind_spreading_factor <= 0
-            )
+        if (
+            (self.age < 0 or self.age is None) or 
+            (self.height_class < 0 or self.height_class is None)
         ):
-            raise ValueError("WIND dispersal requires positive wind_spreading_factor")
+            raise ValueError("Age and Height class must be non negative.")
+        
 
     def __repr__(self):
         return f"TreeAgent(species={self.species_config.species_name}, age={self.age}, height_class={self.height_class}, seeds={self.seeds})"
@@ -72,7 +68,7 @@ class TreeAgent:
         raise NotImplementedError
 
     def produce_seeds(self, rng: np.random.Generator) -> int:
-        if self.age >= self.species_config.maturity_age:
+        if self.is_mature:
             self.seeds = int(
                 rng.poisson(self.species_config.fecundity * self.height_class)
             )

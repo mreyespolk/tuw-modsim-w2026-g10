@@ -24,13 +24,42 @@ class TreeAgent:
         self.seeds = 0
         self.seed_production_history = []
 
-    def __post_init__(self):
-        if self.species_config.dispersal_type == DispersalType.WIND:
-            assert self.species_config.wind_spreading_factor is not None
-            assert self.species_config.wind_spreading_factor > 0
+        self._validate_init_params()
+
+    def _validate_init_params(self):
+        if self.age < 0 or self.height_class < 0:
+            raise ValueError("Age and Height class must be non negative.")
+        if (self.species_config.dispersal_type == DispersalType.WIND and 
+            (
+                self.species_config.wind_spreading_factor is None or
+                self.species_config.wind_spreading_factor <= 0
+            )
+        ):
+            raise ValueError("WIND dispersal requires positive wind_spreading_factor")
 
     def __repr__(self):
         return f"TreeAgent(species={self.species_config.species_name}, age={self.age}, height_class={self.height_class}, seeds={self.seeds})"
+
+    @classmethod
+    def from_height_class(cls, species_config: TreeConfig, height_class: int, x: int = 0, y: int = 0) -> "TreeAgent":
+        estimated_age = height_class * species_config.years_per_height_class
+        return cls(
+            species_config=species_config,
+            age=estimated_age,
+            height_class=height_class,
+            x=x,
+            y=y,
+        )
+
+    @classmethod
+    def newborn(cls, species_config: TreeConfig, x: int = 0, y: int = 0) -> "TreeAgent":
+        return cls(
+            species_config=species_config,
+            age=0,
+            height_class=0,
+            x=x,
+            y=y,
+        )
 
     @property
     def is_mature(self):
@@ -57,7 +86,7 @@ class TreeAgent:
         self,
         rng: np.random.Generator,
         strategy: DispersalStrategy | None = None,
-        wind_strength: float | None = None,
+        wind_strength: int | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Disperses all seeds currently held by this tree and resets its seed stock."""
         if self.seeds <= 0:

@@ -38,13 +38,6 @@ def get_tree_configs(csv_path: str) -> dict[str, TreeConfig]:
 configs = get_tree_configs("./data/trees_vienna.csv")
 
 with st.sidebar:
-<<<<<<< HEAD
-    seed = st.number_input(label="Seed", value=10)
-    if seed is None:
-        rng = np.random.default_rng(DEFAULT_RANDOM_SEED)
-    else: 
-        rng = np.random.default_rng(seed)
-=======
     seed_cols = st.columns([0.6, 0.4], vertical_alignment="bottom")
     with seed_cols[0]:
         seed = st.number_input(
@@ -56,7 +49,6 @@ with st.sidebar:
     with seed_cols[1]:
         st.button("New seed", on_click=random_seed_callback, use_container_width=True)
     rng = np.random.default_rng(st.session_state["seed"])
->>>>>>> dev-MRP
     species = st.selectbox("Species", list(configs.keys()))
     selected_config = configs[species]
 

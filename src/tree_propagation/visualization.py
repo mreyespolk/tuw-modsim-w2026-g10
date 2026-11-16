@@ -5,8 +5,8 @@ import seaborn as sns
 from matplotlib import patches
 from plotly.subplots import make_subplots
 
-from src.tree_propagation.dispersal import DispersalType
 from src.tree_propagation.models import SeedShadowMetrics, SeedShadowResult
+from src.tree_propagation.types import DispersalType
 from src.tree_propagation.wind_config import WindRose
 
 

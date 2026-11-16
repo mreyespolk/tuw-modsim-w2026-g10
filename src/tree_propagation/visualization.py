@@ -70,6 +70,27 @@ def plot_wind_rose(wind_rose: WindRose) -> go.Figure:
     )
     return fig
 
+def _nice_colorbar_ticks(cmax: float, target_ticks: int = 6) -> list[float]:
+    """Generates clean, human-readable tick values from 0 up to cmax for any scale."""
+    if cmax <= 0:
+        return [0.0]
+
+    raw_step = cmax / target_ticks
+    magnitude = 10 ** np.floor(np.log10(raw_step))
+    residual = raw_step / magnitude
+
+    if residual <= 1.5:
+        nice_step = 1.0 * magnitude
+    elif residual <= 3.0:
+        nice_step = 2.0 * magnitude
+    elif residual <= 7.0:
+        nice_step = 5.0 * magnitude
+    else:
+        nice_step = 10.0 * magnitude
+
+    ticks = np.arange(0, cmax + nice_step * 0.5, nice_step)
+    return [round(float(t), 10) for t in ticks if t <= cmax * 1.001]
+
 def plot_seed_shadow_and_distance(
     result: SeedShadowResult, metrics: SeedShadowMetrics, max_scatter_points: int = 100_000
 ) -> go.Figure:
@@ -101,6 +122,27 @@ def plot_seed_shadow_and_distance(
     else:
         plot_xs, plot_ys, plot_dists = xs, ys, dists
 
+    power = 0.75
+    cmax_m = float(np.percentile(plot_dists, 98))
+    color_vals = np.clip(plot_dists, 0, cmax_m) ** power
+    tick_vals_m = _nice_colorbar_ticks(cmax_m)
+
+    tick_candidates = [0, 1, 2, 4, 7, 10, 14, 20, 30]
+    tick_vals_m = [t for t in tick_candidates if t <= cmax_m]
+
+    # Gradual 8-stop scale
+    gradual_greens = [
+        [0.00, "#041A0F"],  # deep pine-black (0 m)
+        [0.16, "#06311C"],  # dark forest
+        [0.32, "#145331"],  # rich emerald
+        [0.50, "#33965B"],  # vibrant medium green
+        [0.68, "#5BB876"],  # fresh sage
+        [0.85, "#8FD692"],  # light spring green
+        [1.00, "#C7ECB0"],  # pale lime (outer edges)
+    ]
+
+    #marker_opacity = 0.38 if len(plot_xs) > 5_000 else 0.65
+
     # Interactive WebGL Seed Scatterplot
     fig.add_trace(
         go.Scattergl(
@@ -110,16 +152,19 @@ def plot_seed_shadow_and_distance(
             name="Seeds",
             marker={
                 "size": 4,
-                "color": plot_dists,
-                "colorscale": [
-                    [0.0, "#021a0b"],   # medium pale green
-                    [0.25, "#00441b"],  # fresh medium green
-                    [0.55, "#1b7837"],  # deep forest green
-                    [0.8, "#5ab467"],   # very dark green
-                    [1.0, "#a1d99b"],   # almost-black green
-                ],
-                "opacity": 0.65,
-                "colorbar": {"title": "Distance [m]", "x": 0.44, "len": 0.85},
+                "color": color_vals,
+                "cmin": 0,
+                "cmax": cmax_m**power,
+                "colorscale": gradual_greens,
+                "opacity": 0.60,
+                "line": {"width": 0.35, "color": "rgba(13, 66, 40, 0.3)"},
+                "colorbar": {
+                    "title": "Distance [m]",
+                    "x": 0.44,
+                    "len": 0.85,
+                    "tickvals": [t**power for t in tick_vals_m],
+                    "ticktext": [f"{t:g}" for t in tick_vals_m],
+                },
             },
             customdata=plot_dists,
             hovertemplate="x: %{x:.2f} m<br>y: %{y:.2f} m<br>r: %{customdata:.2f} m<extra></extra>",
@@ -254,6 +299,8 @@ def plot_seed_shadow_and_distance(
     fig.update_layout(
         height=550,
         template="plotly_white",
+        plot_bgcolor="#DFE3E8",
+        paper_bgcolor="#F8F9FA",
         dragmode="zoom",
         legend={"orientation": "h", "yanchor": "bottom", "y": -0.22, "xanchor": "center", "x": 0.5},
         margin={"t": 60, "b": 90, "l": 50, "r": 30},

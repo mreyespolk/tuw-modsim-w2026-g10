@@ -363,8 +363,8 @@ def plot_seed_shadow_and_distance(
         line_color="black",
         annotation_text=f"Sample mean = {empirical_mean:.2f} m",
         annotation_position="top right",
-        row="1",
-        col="2",
+        row=1,
+        col=2,
     )
 
     fig.update_xaxes(title_text="Distance r [m]", row=1, col=2)

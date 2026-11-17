@@ -1,5 +1,4 @@
 import numpy as np
-
 from src.tree_propagation.dispersal import (
     compute_mean_dispersal_distance,
     empty_dispersal_result,

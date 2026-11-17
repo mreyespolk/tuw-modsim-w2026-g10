@@ -5,7 +5,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import streamlit as st
-
 from src.tree_propagation.consts import DEFAULT_RANDOM_SEED
 from src.tree_propagation.environment import EnvironmentState
 from src.tree_propagation.metrics import evaluate_seed_shadow
@@ -100,13 +99,20 @@ def render_metrics_bar(metrics: SeedShadowMetrics) -> None:
         "Total Seeds Dispersed",
         f"{metrics.total_seeds:,}",
         f"avg {metrics.mean_seeds_per_instance:.1f} / run",
+        delta_color="off",
+        delta_arrow="off",
     )
-    c2.metric("Theoretical Mean (r̄)", f"{metrics.theoretical_mean_radius:.3f} m")
+    c2.metric("Theoretical Mean (r̄)", 
+              f"{metrics.theoretical_mean_radius:.3f} m",
+              delta_color="off",
+              delta_arrow="off",
+              )
     c3.metric(
         "Simulated Mean",
         f"{metrics.empirical_mean_radius:.3f} m",
         f"{metrics.rel_error_pct:.2f}% err",
         delta_color="off",
+        delta_arrow="off",
     )
     c4.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
 
@@ -144,6 +150,9 @@ def render_wind_tab(wind_rose: WindRose) -> None:
             "Wind directions denote where wind blows *from*; dispersed seeds travel "
             "180° opposite (downwind) with uniform jitter within each 45° sector."
         )
+
+def render_trees_summary_tab(configs):
+    pass
 
 
 def main() -> None:

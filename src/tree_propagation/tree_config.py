@@ -4,6 +4,18 @@ from pathlib import Path
 
 from src.tree_propagation.types import DispersalType
 
+SPECIES_TRAIT_LABELS = {
+    "shade_tolerance": "Shade Tolerance τ [0–1]",
+    "maturity_age": "Maturity Age A [yr]",
+    "mean_life_span": "Mean Lifespan L [yr]",
+    "fecundity": "Fecundity φ",
+    "years_per_height_class": "Years / Height Class T [yr]",
+    "maximal_height_class": "Max Height Class K",
+    "reproductive_span": "Reproductive Span (L − A) [yr]",
+    "time_to_max_height": "Age at Max Height (K · T) [yr]",
+    "peak_seed_rate": "Peak Seed Rate (φ · K) [/yr]",
+    "mean_dispersal_radius": "Mean Dispersal Radius r̄ [m]",
+}
 
 @dataclass(frozen=True)
 class TreeConfig:
@@ -37,6 +49,18 @@ class TreeConfig:
             )
         ):
             raise ValueError("ANIMAL and GRAVITY dispersal require positive 'mean_dispersal_distance'.")
+
+    @property
+    def reproductive_span(self) -> int:
+        return max(0, self.mean_life_span - self.maturity_age)
+
+    @property
+    def time_to_max_height(self) -> int:
+        return self.maximal_height_class * self.years_per_height_class
+
+    @property
+    def peak_seed_rate(self) -> float:
+        return self.fecundity * self.maximal_height_class
 
 
 

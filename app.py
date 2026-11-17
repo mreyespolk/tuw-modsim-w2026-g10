@@ -10,10 +10,19 @@ from src.tree_propagation.environment import EnvironmentState
 from src.tree_propagation.metrics import evaluate_seed_shadow
 from src.tree_propagation.models import SeedShadowMetrics
 from src.tree_propagation.simulation import simulate_seed_shadow
-from src.tree_propagation.tree_config import TreeConfig, load_tree_configs
-from src.tree_propagation.utils import windrose_to_dataframe
+from src.tree_propagation.tree_config import (
+    SPECIES_TRAIT_LABELS,
+    TreeConfig,
+    load_tree_configs,
+)
+from src.tree_propagation.utils import build_species_trait_table, windrose_to_dataframe
 from src.tree_propagation.visualization_plotly import (
+    plot_dispersal_reach_by_height_class,
+    plot_pioneer_climax_tradeoff,
     plot_simulated_seed_shadow_and_distance_histogram,
+    plot_species_3d_scatter,
+    plot_species_lifecycle_timelines,
+    plot_species_trait_heatmap,
     plot_wind_rose,
 )
 from src.tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
@@ -151,8 +160,45 @@ def render_wind_tab(wind_rose: WindRose) -> None:
             "180° opposite (downwind) with uniform jitter within each 45° sector."
         )
 
-def render_trees_summary_tab(configs):
-    pass
+def render_species_overview_tab(configs: dict[str, TreeConfig], params: SimulationParams) -> None:
+    env_state = EnvironmentState(wind_rose=DEFAULT_WIND_ROSE, wind_strength=params.wind_strength)
+    traits_df = build_species_trait_table(
+        configs,
+        reference_height_class=params.height_class,
+        environment=env_state,
+    )
+
+    st.plotly_chart(plot_pioneer_climax_tradeoff(traits_df), use_container_width=True)
+
+    col_left, col_right = st.columns(2)
+    with col_left:
+        st.plotly_chart(plot_species_lifecycle_timelines(traits_df), use_container_width=True)
+    with col_right:
+        st.plotly_chart(
+            plot_dispersal_reach_by_height_class(configs, wind_strength=params.wind_strength),
+            use_container_width=True,
+        )
+
+    st.plotly_chart(plot_species_trait_heatmap(traits_df), use_container_width=True)
+
+    st.subheader("3D Trait Space Explorer")
+    trait_keys = list(SPECIES_TRAIT_LABELS.keys())
+    c_x, c_y, c_z = st.columns(3)
+    with c_x:
+        x_key = st.selectbox("X-Axis Variable", trait_keys, index=0, format_func=SPECIES_TRAIT_LABELS.get) # type: ignore
+    with c_y:
+        y_key = st.selectbox("Y-Axis Variable", trait_keys, index=1, format_func=SPECIES_TRAIT_LABELS.get) # type: ignore
+    with c_z:
+        z_key = st.selectbox("Z-Axis Variable", trait_keys, index=2, format_func=SPECIES_TRAIT_LABELS.get) # type: ignore
+
+    st.plotly_chart(plot_species_3d_scatter(traits_df, x_key=x_key, y_key=y_key, z_key=z_key), use_container_width=True)
+
+    st.subheader("Species Parameter Table")
+    st.dataframe(
+        traits_df.rename(columns={"species_name": "Species", "dispersal_type": "Dispersal", **SPECIES_TRAIT_LABELS}),
+        hide_index=True,
+        use_container_width=True,
+    )
 
 
 def main() -> None:
@@ -174,7 +220,7 @@ def main() -> None:
     with tab_wind:
         render_wind_tab(DEFAULT_WIND_ROSE)
     with tab_species:
-        st.info("Species comparison charts and trait table coming soon.")
+        render_species_overview_tab(configs, params)
 
 
 if __name__ == "__main__":

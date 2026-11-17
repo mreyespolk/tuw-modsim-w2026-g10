@@ -1,8 +1,11 @@
+from collections.abc import Mapping
+
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
 from src.tree_propagation.models import SeedShadowMetrics, SeedShadowResult
+from src.tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
 from src.tree_propagation.types import DispersalType
 from src.tree_propagation.visualization_common import (
     compass_label_positions,
@@ -11,6 +14,12 @@ from src.tree_propagation.visualization_common import (
     compute_sector_boundary_endpoints,
 )
 from src.tree_propagation.wind_config import WindRose
+
+DISPERSAL_COLORS = {
+    DispersalType.WIND: "#2B7BBA",
+    DispersalType.ANIMAL: "#D95F02",
+    DispersalType.GRAVITY: "#7570B3",
+}
 
 GRADUAL_GREENS = [
     [0.00, "#041A0F"],  # deep pine-black (0 m)
@@ -289,4 +298,258 @@ def plot_simulated_seed_shadow_and_distance_histogram(
         margin={"t": 60, "b": 90, "l": 50, "r": 30},
     )
 
+    return fig
+
+def plot_dispersal_reach_by_height_class(
+        species_config: Mapping[str, TreeConfig], wind_strength: int = 10
+) -> go.Figure:
+    """Line chart comparing theoretical mean dispersal distance r_bar across height classes k=1..K."""
+    fig = go.Figure()
+
+    for cfg in sorted(species_config.values(), key=lambda c: c.species_name):
+        ks = list(range(1, cfg.maximal_height_class + 1))
+        if cfg.dispersal_type == DispersalType.WIND:
+            assert cfg.wind_spreading_factor is not None
+            r_bars = [wind_strength * cfg.wind_spreading_factor * k for k in ks]
+            dash = "solid"
+        else:
+            assert cfg.mean_dispersal_distance is not None
+            r_bars = [cfg.mean_dispersal_distance for _ in ks]
+            dash = "dash" if cfg.dispersal_type == DispersalType.ANIMAL else "dot"
+
+        fig.add_trace(
+            go.Scatter(
+                x=ks,
+                y=r_bars,
+                mode="lines+markers",
+                name=f"{cfg.species_name} ({cfg.dispersal_type.value})",
+                line={"color": DISPERSAL_COLORS[cfg.dispersal_type], "width": 2, "dash": dash},
+                marker={"size": 7},
+                hovertemplate=(
+                    f"<b>{cfg.species_name}</b> ({cfg.dispersal_type.value})<br>"
+                    "Height class k: %{x}<br>"
+                    "Theoretical mean r̄: %{y:.1f} m<extra></extra>"
+                ),
+            )
+        )
+
+    fig.update_layout(
+        title={
+            "text": f"Theoretical Mean Dispersal Distance (r̄) by Height Class (Wind Strength s = {wind_strength:g})",
+            "x": 0.5,
+            "xanchor": "center",
+        },
+        xaxis={"title": "Height Class (k)", "dtick": 1},
+        yaxis={"title": "Theoretical Mean Dispersal Radius r̄ [m]", "rangemode": "tozero"},
+        height=480,
+        template="plotly_white",
+        margin={"t": 60, "b": 50, "l": 60, "r": 30},
+    )
+    return fig
+
+def plot_pioneer_climax_tradeoff(traits_df: pd.DataFrame) -> go.Figure:
+    """4D scatter comparing shade tolerance, maturity age, peak fecundity, and dispersal mode."""
+    fig = go.Figure()
+
+    for dispersal_type in DispersalType:
+        sub = traits_df[traits_df["dispersal_type"] == dispersal_type.value]
+        if sub.empty:
+            continue
+
+        fig.add_trace(
+            go.Scatter(
+                x=sub["shade_tolerance"],
+                y=sub["maturity_age"],
+                mode="markers+text",
+                name=dispersal_type.value.capitalize(),
+                text=sub["species_name"],
+                textposition="top center",
+                textfont={"size": 11},
+                marker={
+                    "size": 14 + sub["peak_seed_rate"] * 1.8,
+                    "color": DISPERSAL_COLORS[dispersal_type],
+                    "opacity": 0.85,
+                    "line": {"width": 1.5, "color": "white"},
+                },
+                customdata=sub[["mean_life_span", "maximal_height_class", "peak_seed_rate"]].to_numpy(),
+                hovertemplate=(
+                    "<b>%{text}</b><br>"
+                    "Shade tolerance (τ): %{x:.2f}<br>"
+                    "Maturity age (A): %{y} yr<br>"
+                    "Mean lifespan (L): %{customdata[0]} yr<br>"
+                    "Max height class (K): %{customdata[1]}<br>"
+                    "Peak seed rate (φ·K): %{customdata[2]:.1f} / yr"
+                    "<extra></extra>"
+                ),
+            )
+        )
+
+    fig.add_vline(x=0.5, line_dash="dot", line_color="gray", opacity=0.5)
+    fig.add_annotation(
+        x=0.03, y=1.04, xref="paper", yref="paper", text="<b>Pioneer / Light-Demanding</b>",
+        showarrow=False, font={"size": 11, "color": "dimgray"},
+    )
+    fig.add_annotation(
+        x=0.97, y=1.04, xref="paper", yref="paper", text="<b>Climax / Shade-Tolerant</b>",
+        showarrow=False, font={"size": 11, "color": "dimgray"},
+    )
+
+    fig.update_layout(
+        title={"text": "Successional Strategy: Shade Tolerance vs. Maturity Age", "x": 0.5, "xanchor": "center"},
+        xaxis={"title": SPECIES_TRAIT_LABELS["shade_tolerance"], "range": [0.05, 1.0]},
+        yaxis={"title": SPECIES_TRAIT_LABELS["maturity_age"], "range": [0, 35]},
+        height=480,
+        template="plotly_white",
+        legend={"title": "Dispersal Type", "orientation": "h", "y": -0.18, "x": 0.5, "xanchor": "center"},
+        margin={"t": 75, "b": 80, "l": 60, "r": 30},
+    )
+    return fig
+
+
+def plot_species_lifecycle_timelines(traits_df: pd.DataFrame) -> go.Figure:
+    """Horizontal timeline showing juvenile phase, reproductive span, and max-canopy age."""
+    ordered = traits_df.sort_values(["mean_life_span", "maturity_age"])
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            y=ordered["species_name"],
+            x=ordered["maturity_age"],
+            name="Juvenile (Non-reproductive)",
+            orientation="h",
+            marker_color="#B0BEC5",
+            hovertemplate="<b>%{y}</b><br>Juvenile phase: 0–%{x} yr<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            y=ordered["species_name"],
+            x=ordered["reproductive_span"],
+            name="Reproductive Span (A → L)",
+            orientation="h",
+            marker_color="#33965B",
+            customdata=ordered["mean_life_span"],
+            hovertemplate="<b>%{y}</b><br>Reproductive duration: %{x} yr<br>Mean lifespan (L): %{customdata} yr<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            y=ordered["species_name"],
+            x=ordered["time_to_max_height"],
+            mode="markers",
+            name="Reaches Max Height Class (K · T)",
+            marker={"symbol": "diamond", "size": 10, "color": "deeppink", "line": {"width": 1, "color": "black"}},
+            customdata=ordered["maximal_height_class"],
+            hovertemplate="<b>%{y}</b><br>Reaches K=%{customdata} at %{x} yr<extra></extra>",
+        )
+    )
+
+    fig.update_layout(
+        title={"text": "Species Lifespan, Reproductive Window & Canopy Maturity", "x": 0.5, "xanchor": "center"},
+        barmode="stack",
+        xaxis_title="Age [years]",
+        height=460,
+        template="plotly_white",
+        legend={"orientation": "h", "y": -0.18, "x": 0.5, "xanchor": "center"},
+        margin={"t": 60, "b": 80, "l": 100, "r": 30},
+    )
+    return fig
+
+
+def plot_species_trait_heatmap(traits_df: pd.DataFrame) -> go.Figure:
+    """Normalized multi-trait comparison heatmap with exact raw values annotated in each cell."""
+    ordered = traits_df.sort_values("shade_tolerance", ascending=False)
+    trait_keys = list(SPECIES_TRAIT_LABELS.keys())
+    trait_labels = [SPECIES_TRAIT_LABELS[k] for k in trait_keys]
+
+    raw_matrix = ordered[trait_keys].to_numpy(dtype=float)
+    col_min = raw_matrix.min(axis=0)
+    col_span = np.where(raw_matrix.max(axis=0) - col_min > 0, raw_matrix.max(axis=0) - col_min, 1.0)
+    norm_matrix = (raw_matrix - col_min) / col_span
+
+    text_matrix = np.vectorize(lambda v: f"{v:g}")(np.round(raw_matrix, 2))
+
+    fig = go.Figure(
+        go.Heatmap(
+            z=norm_matrix,
+            x=trait_labels,
+            y=ordered["species_name"],
+            text=text_matrix,
+            texttemplate="%{text}",
+            textfont={"size": 11},
+            colorscale="Greens",
+            showscale=True,
+            colorbar={"title": "Relative<br>Scale", "tickvals": [0, 0.5, 1], "ticktext": ["Min", "Mid", "Max"]},
+            hovertemplate="<b>%{y}</b><br>%{x}: <b>%{text}</b><br>Normalized: %{z:.2f}<extra></extra>",
+        )
+    )
+
+    fig.update_layout(
+        title={"text": "Species Ecological Trait Matrix (Sorted by Shade Tolerance)", "x": 0.5, "xanchor": "center"},
+        xaxis={"side": "top"},
+        yaxis={"autorange": "reversed"},
+        height=520,
+        template="plotly_white",
+        margin={"t": 120, "b": 30, "l": 100, "r": 40},
+    )
+    return fig
+
+
+def plot_species_3d_scatter(
+    traits_df: pd.DataFrame,
+    x_key: str = "shade_tolerance",
+    y_key: str = "maturity_age",
+    z_key: str = "mean_life_span",
+) -> go.Figure:
+    """Interactive 3D scatterplot of any three species trait columns, colored by dispersal type."""
+    x_label = SPECIES_TRAIT_LABELS[x_key]
+    y_label = SPECIES_TRAIT_LABELS[y_key]
+    z_label = SPECIES_TRAIT_LABELS[z_key]
+
+    fig = go.Figure()
+
+    for dispersal_type in DispersalType:
+        sub = traits_df[traits_df["dispersal_type"] == dispersal_type.value]
+        if sub.empty:
+            continue
+
+        fig.add_trace(
+            go.Scatter3d(
+                x=sub[x_key],
+                y=sub[y_key],
+                z=sub[z_key],
+                mode="markers+text",
+                name=dispersal_type.value.capitalize(),
+                text=sub["species_name"],
+                textposition="top center",
+                textfont={"size": 10},
+                marker={
+                    "size": 7,
+                    "color": DISPERSAL_COLORS[dispersal_type],
+                    "opacity": 0.9,
+                    "line": {"width": 1, "color": "white"},
+                },
+                hovertemplate=(
+                    "<b>%{text}</b> (" + dispersal_type.value + ")<br>"
+                    f"{x_label}: %{{x:.2f}}<br>"
+                    f"{y_label}: %{{y:.2f}}<br>"
+                    f"{z_label}: %{{z:.2f}}"
+                    "<extra></extra>"
+                ),
+            )
+        )
+
+    fig.update_layout(
+        title={"text": f"3D Species Trait Space: {x_label} × {y_label} × {z_label}", "x": 0.5, "xanchor": "center"},
+        scene={
+            "xaxis_title": x_label,
+            "yaxis_title": y_label,
+            "zaxis_title": z_label,
+            "camera": {"eye": {"x": 1.55, "y": 1.55, "z": 1.15}},
+        },
+        height=620,
+        template="plotly_white",
+        legend={"title": "Dispersal Type", "orientation": "h", "y": -0.05, "x": 0.5, "xanchor": "center"},
+        margin={"t": 60, "b": 30, "l": 10, "r": 10},
+    )
     return fig

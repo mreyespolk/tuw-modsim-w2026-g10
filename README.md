@@ -23,3 +23,23 @@ Launch the streamlit app:
 ```sh
 streamlit run app.py
 ```
+
+## Taking screenshots of Streamlit
+
+### Firefox
+1. Open the dev tools: `CTRL + SHIFT + I`
+2. Open the console and use the command to allow streamlit to overflow
+    ```javascript
+    document.querySelectorAll('#js-plotly-tester').forEach(el => el.remove());
+    let el = document.querySelector('[data-testid="stMainBlockContainer"]');
+    while (el && el.style) {
+    el.style.overflow = 'visible';
+    el.style.overflowY = 'visible';
+    el.style.height = 'auto';
+    el.style.maxHeight = 'none';
+    el.style.position = 'relative';
+    el.style.inset = 'auto';
+    el = el.parentElement;
+    }
+    ```
+3. Click back on the page and open the Firefox screenshot tool `CTRL+SHIFT+S`, then select the option for full page

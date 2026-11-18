@@ -17,9 +17,8 @@ def simulate_seed_shadow(
     """Simulates seed production and spatial dispersal for a single parent tree."""
     rng = rng if rng is not None else np.random.default_rng(DEFAULT_RANDOM_SEED)
 
-    agent = TreeAgent(
+    agent = TreeAgent.from_height_class(
         species_config=config,
-        age=config.maturity_age,
         height_class=height_class,
         x=0,
         y=0,

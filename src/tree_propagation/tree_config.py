@@ -93,8 +93,8 @@ class TreeConfig:
     def from_dict(cls, config_dict: dict[str, str]) -> "TreeConfig":
         """Constructs a TreeConfig from a dictionary."""
         return cls(
-            species_name=config_dict["species"],
-            dispersal_type=DispersalType(config_dict["dispersal"]),
+            species_name=config_dict["species"].strip(),
+            dispersal_type=DispersalType(config_dict["dispersal"].strip()),
             wind_spreading_factor=float(config_dict["f"]) if config_dict["f"] else None,
             mean_dispersal_distance=float(config_dict["d_m"]) if config_dict["d_m"] else None,
             fecundity=float(config_dict["phi"]),

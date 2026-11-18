@@ -6,7 +6,7 @@ import pytest
 from tree_propagation.tree_config import TreeConfig, load_tree_configs
 from tree_propagation.wind_config import WindDirection, WindRose
 
-DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "tree_species_configs.csv"
+DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "tree_species_config.csv"
 
 
 @pytest.fixture

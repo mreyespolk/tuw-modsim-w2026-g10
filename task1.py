@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 RNG = np.random.default_rng(seed=10)
 SIMULATION_RUNS = 1_000_000
-SPECIES_CONFIG_PATH = "./data/tree_species_configs.csv"
+SPECIES_CONFIG_PATH = "./data/tree_species_config.csv"
 
 tree_configs = load_tree_configs(SPECIES_CONFIG_PATH)
 

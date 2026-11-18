@@ -32,7 +32,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 APP_DIR = Path(__file__).resolve().parent
-DEFAULT_CONFIG_PATH = APP_DIR / "data" / "tree_species_configs.csv"
+DEFAULT_CONFIG_PATH = APP_DIR / "data" / "tree_species_config.csv"
 INSTANCE_OPTIONS = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 5_000, 10_000, 100_000]
 
 

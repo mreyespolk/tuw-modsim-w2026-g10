@@ -38,6 +38,18 @@ GRADUAL_GREENS = [
     [1.00, "#93B87C"],  # pale lime (outer edges)
 ]
 
+MARKER_SYMBOLS = (
+    "circle",
+    "square",
+    "diamond",
+    "triangle-up",
+    "cross",
+    "x",
+    "star",
+    "pentagon",
+    "triangle-down",
+    "hexagon",
+)
 
 def _nice_colorbar_ticks(cmax: float, target_ticks: int = 6) -> list[float]:
     """Generates clean, human-readable tick values from 0 up to cmax for any scale."""
@@ -308,13 +320,28 @@ def plot_simulated_seed_shadow_and_distance_histogram(
     return fig
 
 def plot_dispersal_reach_by_height_class(
-        species_config: Mapping[str, TreeConfig], wind_strength: int = 10
+    species_config: Mapping[str, TreeConfig], wind_strength: int = 10
 ) -> go.Figure:
-    """Line chart comparing theoretical mean dispersal distance r_bar across height classes k=1..K."""
-    fig = go.Figure()
+    """Faceted line chart comparing theoretical mean dispersal distance r_bar across height classes k=1..K."""
+    dispersal_order = [
+        DispersalType.WIND,
+        DispersalType.GRAVITY,
+        DispersalType.ANIMAL,
+    ]
+    col_map = {dtype: idx + 1 for idx, dtype in enumerate(dispersal_order)}
+
+    fig = make_subplots(
+        rows=1,
+        cols=3,
+        shared_yaxes=True,
+        subplot_titles=[dtype.value.capitalize() for dtype in dispersal_order],
+        horizontal_spacing=0.04,
+    )
 
     for cfg in sorted(species_config.values(), key=lambda c: c.species_name):
+        col = col_map[cfg.dispersal_type]
         ks = list(range(1, cfg.maximal_height_class + 1))
+
         if cfg.dispersal_type == DispersalType.WIND:
             assert cfg.wind_spreading_factor is not None
             r_bars = [wind_strength * cfg.wind_spreading_factor * k for k in ks]
@@ -329,7 +356,7 @@ def plot_dispersal_reach_by_height_class(
                 x=ks,
                 y=r_bars,
                 mode="lines+markers",
-                name=f"{cfg.species_name} ({cfg.dispersal_type.value})",
+                name=cfg.species_name,
                 line={"color": DISPERSAL_COLORS[cfg.dispersal_type], "width": 2, "dash": dash},
                 marker={"size": 7},
                 hovertemplate=(
@@ -337,8 +364,17 @@ def plot_dispersal_reach_by_height_class(
                     "Height class k: %{x}<br>"
                     "Theoretical mean r̄: %{y:.1f} m<extra></extra>"
                 ),
-            )
+            ),
+            row=1,
+            col=col,
         )
+
+    # Apply x-axis ticks and titles to all three subplots
+    fig.update_xaxes(title_text="Height Class (k)", dtick=1)
+
+    # Enforce zero baseline across the linked y-axes, and label only the leftmost axis
+    fig.update_yaxes(rangemode="tozero")
+    fig.update_yaxes(title_text="Theoretical Mean Dispersal Radius r̄ [m]", row=1, col=1)
 
     fig.update_layout(
         title={
@@ -346,11 +382,111 @@ def plot_dispersal_reach_by_height_class(
             "x": 0.5,
             "xanchor": "center",
         },
-        xaxis={"title": "Height Class (k)", "dtick": 1},
-        yaxis={"title": "Theoretical Mean Dispersal Radius r̄ [m]", "rangemode": "tozero"},
         height=480,
         template="plotly_white",
-        margin={"t": 60, "b": 50, "l": 60, "r": 30},
+        margin={"t": 80, "b": 50, "l": 60, "r": 30},
+    )
+    return fig
+
+def plot_dispersal_reach_by_age(
+    species_config: Mapping[str, TreeConfig],
+    wind_strength: int = 10,
+) -> go.Figure:
+    """Faceted line chart comparing theoretical mean dispersal distance r_bar over tree age."""
+    dispersal_order = [
+        DispersalType.WIND,
+        DispersalType.GRAVITY,
+        DispersalType.ANIMAL,
+    ]
+    col_map = {dtype: idx + 1 for idx, dtype in enumerate(dispersal_order)}
+    facet_counts = {dtype: 0 for dtype in dispersal_order}
+
+    max_lifespan = max(int(round(cfg.mean_life_span)) for cfg in species_config.values())
+    max_r_bar = 0.0
+
+    fig = make_subplots(
+        rows=1,
+        cols=3,
+        shared_yaxes=True,
+        subplot_titles=[dtype.value.capitalize() for dtype in dispersal_order],
+        horizontal_spacing=0.04,
+    )
+
+    for cfg in sorted(species_config.values(), key=lambda c: c.species_name):
+        dtype = cfg.dispersal_type
+        col = col_map[dtype]
+
+        symbol = MARKER_SYMBOLS[facet_counts[dtype] % len(MARKER_SYMBOLS)]
+        facet_counts[dtype] += 1
+
+        lifespan = int(round(cfg.mean_life_span))
+        ages = list(range(0, lifespan + 1))
+
+        ks = [
+            min(cfg.maximal_height_class, int(age // cfg.years_per_height_class) + 1)
+            for age in ages
+        ]
+
+        if dtype == DispersalType.WIND:
+            assert cfg.wind_spreading_factor is not None
+            r_bars = [wind_strength * cfg.wind_spreading_factor * k for k in ks]
+            dash = "solid"
+        else:
+            assert cfg.mean_dispersal_distance is not None
+            r_bars = [cfg.mean_dispersal_distance for _ in ks]
+            dash = "dash" if dtype == DispersalType.ANIMAL else "dot"
+
+        if r_bars:
+            max_r_bar = max(max_r_bar, max(r_bars))
+
+        marker_sizes = [0] * (len(ages) - 1) + [9]
+
+        fig.add_trace(
+            go.Scatter(
+                x=ages,
+                y=r_bars,
+                customdata=ks,
+                mode="lines+markers",
+                name=cfg.species_name,
+                line={
+                    "color": DISPERSAL_COLORS[dtype],
+                    "width": 2,
+                    "dash": dash,
+                    "shape": "hv",
+                },
+                marker={
+                    "symbol": symbol,
+                    "size": marker_sizes,
+                    "line": {"width": 1, "color": "white"},
+                },
+                hovertemplate=(
+                    f"<b>{cfg.species_name}</b> ({dtype.value})<br>"
+                    "Age: %{x} yr (Height class k = %{customdata})<br>"
+                    f"Mean lifespan: {lifespan} yr<br>"
+                    "Theoretical mean r̄: %{y:.1f} m<extra></extra>"
+                ),
+            ),
+            row=1,
+            col=col,
+        )
+
+    fig.update_xaxes(
+        title_text="Tree Age [years]",
+        range=[0, max_lifespan * 1.04],
+    )
+    fig.update_yaxes(range=[0, max_r_bar * 1.08])
+    fig.update_yaxes(title_text="Theoretical Mean Dispersal Radius r̄ [m]", row=1, col=1)
+
+    fig.update_layout(
+        title={
+            "text": f"Theoretical Mean Dispersal Distance (r̄) by Tree Age (Wind Strength s = {wind_strength:g})",
+            "x": 0.5,
+            "xanchor": "center",
+        },
+        legend={"itemsizing": "constant"},
+        height=480,
+        template="plotly_white",
+        margin={"t": 80, "b": 50, "l": 60, "r": 30},
     )
     return fig
 

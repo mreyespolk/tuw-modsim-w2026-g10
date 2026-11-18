@@ -18,7 +18,7 @@ from tree_propagation.tree_config import (
 )
 from tree_propagation.utils import build_species_trait_table, windrose_to_dataframe
 from tree_propagation.visualization_plotly import (
-    plot_dispersal_reach_by_height_class,
+    plot_dispersal_reach_by_age,
     plot_pioneer_climax_tradeoff,
     plot_simulated_seed_shadow_and_distance_histogram,
     plot_species_3d_scatter,
@@ -69,7 +69,7 @@ def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
         with seed_col:
             st.number_input(label="Seed", min_value=0, step=1, key="seed")
         with btn_col:
-            st.button("New seed", on_click=_randomize_seed, use_container_width=True)
+            st.button("New seed", on_click=_randomize_seed, width="stretch")
 
         species = st.selectbox("Species", list(configs.keys()))
         selected_config = configs[species]
@@ -99,7 +99,7 @@ def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
 
 
 def render_wind_rose_panel(wind_rose: WindRose) -> None:
-    st.plotly_chart(plot_wind_rose(wind_rose), use_container_width=True)
+    st.plotly_chart(plot_wind_rose(wind_rose), width="stretch")
     st.table(windrose_to_dataframe(wind_rose))
 
 
@@ -146,11 +146,11 @@ def render_seed_shadow_tab(config: TreeConfig, params: SimulationParams) -> None
         st.warning("Zero seeds were produced across the simulated instances. Increase N or height class.")
     else:
         fig = plot_simulated_seed_shadow_and_distance_histogram(result=result, metrics=metrics)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 
 def render_wind_tab(wind_rose: WindRose) -> None:
-    st.plotly_chart(plot_wind_rose(wind_rose), use_container_width=True)
+    st.plotly_chart(plot_wind_rose(wind_rose), width="stretch")
     _, col_table, _ = st.columns([0.25, 0.5, 0.25], vertical_alignment="center")
     with col_table:
         st.subheader("Sector Probabilities (Blowing From Direction)")
@@ -168,18 +168,16 @@ def render_species_overview_tab(configs: dict[str, TreeConfig], params: Simulati
         environment=env_state,
     )
 
-    st.plotly_chart(plot_pioneer_climax_tradeoff(traits_df), use_container_width=True)
+    st.plotly_chart(plot_pioneer_climax_tradeoff(traits_df), width="stretch")
 
-    col_left, col_right = st.columns(2)
-    with col_left:
-        st.plotly_chart(plot_species_lifecycle_timelines(traits_df), use_container_width=True)
-    with col_right:
-        st.plotly_chart(
-            plot_dispersal_reach_by_height_class(configs, wind_strength=params.wind_strength),
-            use_container_width=True,
-        )
 
-    st.plotly_chart(plot_species_trait_heatmap(traits_df), use_container_width=True)
+    st.plotly_chart(plot_species_lifecycle_timelines(traits_df), width="stretch")
+    st.plotly_chart(
+        plot_dispersal_reach_by_age(configs, wind_strength=params.wind_strength),
+        width="stretch",
+    )
+
+    st.plotly_chart(plot_species_trait_heatmap(traits_df), width="stretch")
 
     st.subheader("3D Trait Space Explorer")
     trait_keys = list(SPECIES_TRAIT_LABELS.keys())
@@ -191,13 +189,13 @@ def render_species_overview_tab(configs: dict[str, TreeConfig], params: Simulati
     with c_z:
         z_key = st.selectbox("Z-Axis Variable", trait_keys, index=2, format_func=SPECIES_TRAIT_LABELS.get) # type: ignore
 
-    st.plotly_chart(plot_species_3d_scatter(traits_df, x_key=x_key, y_key=y_key, z_key=z_key), use_container_width=True)
+    st.plotly_chart(plot_species_3d_scatter(traits_df, x_key=x_key, y_key=y_key, z_key=z_key), width="stretch")
 
     st.subheader("Species Parameter Table")
     st.dataframe(
         traits_df.rename(columns={"species_name": "Species", "dispersal_type": "Dispersal", **SPECIES_TRAIT_LABELS}),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
 

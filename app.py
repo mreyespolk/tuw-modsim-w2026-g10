@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+import tree_propagation.visualization_plotly as visualization_plotly
 from tree_propagation.consts import DEFAULT_RANDOM_SEED
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.metrics import evaluate_seed_shadow
@@ -17,15 +18,6 @@ from tree_propagation.tree_config import (
     load_tree_configs_from_csv,
 )
 from tree_propagation.utils import build_species_trait_table, windrose_to_dataframe
-from tree_propagation.visualization_plotly import (
-    plot_dispersal_reach_by_age,
-    plot_pioneer_climax_tradeoff,
-    plot_simulated_seed_shadow_and_distance_histogram,
-    plot_species_3d_scatter,
-    plot_species_lifecycle_timelines,
-    plot_species_trait_heatmap,
-    plot_wind_rose,
-)
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 
 logging.basicConfig(level=logging.INFO)
@@ -99,7 +91,7 @@ def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
 
 
 def render_wind_rose_panel(wind_rose: WindRose) -> None:
-    st.plotly_chart(plot_wind_rose(wind_rose), width="stretch")
+    st.plotly_chart(visualization_plotly.plot_wind_rose(wind_rose), width="stretch")
     st.table(windrose_to_dataframe(wind_rose))
 
 
@@ -145,12 +137,18 @@ def render_seed_shadow_tab(config: TreeConfig, params: SimulationParams) -> None
     if result.is_empty:
         st.warning("Zero seeds were produced across the simulated instances. Increase N or height class.")
     else:
-        fig = plot_simulated_seed_shadow_and_distance_histogram(result=result, metrics=metrics)
+        fig = visualization_plotly.plot_simulated_seed_shadow_and_distance_histogram(result=result, metrics=metrics)
         st.plotly_chart(fig, width="stretch")
+
+#def render_single_tree_growth(config: TreeConfig):
+#    # TO DO: Generate an actual tree growing simulation
+#    _col_sim, col_math = st.columns(2)
+#    with col_math:
+#        st.plotly_chart(visualization_plotly.plot_growth_over_time(config), width="stretch")
 
 
 def render_wind_tab(wind_rose: WindRose) -> None:
-    st.plotly_chart(plot_wind_rose(wind_rose), width="stretch")
+    st.plotly_chart(visualization_plotly.plot_wind_rose(wind_rose), width="stretch")
     _, col_table, _ = st.columns([0.25, 0.5, 0.25], vertical_alignment="center")
     with col_table:
         st.subheader("Sector Probabilities (Blowing From Direction)")
@@ -168,16 +166,17 @@ def render_species_overview_tab(configs: dict[str, TreeConfig], params: Simulati
         environment=env_state,
     )
 
-    st.plotly_chart(plot_pioneer_climax_tradeoff(traits_df), width="stretch")
+    st.plotly_chart(visualization_plotly.plot_pioneer_climax_tradeoff(traits_df), width="stretch")
 
 
-    st.plotly_chart(plot_species_lifecycle_timelines(traits_df), width="stretch")
+    st.plotly_chart(visualization_plotly.plot_species_lifecycle_timelines(traits_df), width="stretch")
     st.plotly_chart(
-        plot_dispersal_reach_by_age(configs, wind_strength=params.wind_strength),
+        visualization_plotly.plot_dispersal_reach_by_age(configs, wind_strength=params.wind_strength),
         width="stretch",
     )
+    st.plotly_chart(visualization_plotly.plot_growth_over_time(traits_df), width="stretch")
 
-    st.plotly_chart(plot_species_trait_heatmap(traits_df), width="stretch")
+    st.plotly_chart(visualization_plotly.plot_species_trait_heatmap(traits_df), width="stretch")
 
     st.subheader("3D Trait Space Explorer")
     trait_keys = list(SPECIES_TRAIT_LABELS.keys())
@@ -189,7 +188,13 @@ def render_species_overview_tab(configs: dict[str, TreeConfig], params: Simulati
     with c_z:
         z_key = st.selectbox("Z-Axis Variable", trait_keys, index=2, format_func=SPECIES_TRAIT_LABELS.get) # type: ignore
 
-    st.plotly_chart(plot_species_3d_scatter(traits_df, x_key=x_key, y_key=y_key, z_key=z_key), width="stretch")
+    st.plotly_chart(visualization_plotly.plot_species_3d_scatter(traits_df,
+                                                                 x_key=x_key,
+                                                                 y_key=y_key,
+                                                                 z_key=z_key
+                    ), 
+                    width="stretch"
+    )
 
     st.subheader("Species Parameter Table")
     st.dataframe(

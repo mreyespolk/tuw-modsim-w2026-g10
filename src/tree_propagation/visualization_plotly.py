@@ -22,12 +22,6 @@ DISPERSAL_COLORS = {
     DispersalType.GRAVITY: "#7570B3",
 }
 
-DISPERSAL_COLORS = {
-    DispersalType.WIND: "#2B7BBA",
-    DispersalType.ANIMAL: "#D95F02",
-    DispersalType.GRAVITY: "#7570B3",
-}
-
 GRADUAL_GREENS = [
     [0.00, "#041A0F"],  # deep pine-black (0 m)
     [0.16, "#06311C"],  # dark forest
@@ -708,5 +702,102 @@ def plot_species_3d_scatter(
         template="plotly_white",
         legend={"title": "Dispersal Type", "orientation": "h", "y": -0.05, "x": 0.5, "xanchor": "center"},
         margin={"t": 60, "b": 30, "l": 10, "r": 10},
+    )
+    return fig
+
+def plot_growth_over_time(traits_df: pd.DataFrame) -> go.Figure:
+    """Faceted step-line chart comparing discrete height-class trajectories k(a) across species lifespans."""
+    dispersal_order = [
+        DispersalType.WIND,
+        DispersalType.GRAVITY,
+        DispersalType.ANIMAL,
+    ]
+    col_map = {dtype: idx + 1 for idx, dtype in enumerate(dispersal_order)}
+    facet_counts = {dtype: 0 for dtype in dispersal_order}
+
+    max_lifespan = int(round(traits_df["mean_life_span"].max()))
+    max_height_class = int(traits_df["maximal_height_class"].max())
+
+    fig = make_subplots(
+        rows=1,
+        cols=3,
+        shared_yaxes=True,
+        subplot_titles=[dtype.value.capitalize() for dtype in dispersal_order],
+        horizontal_spacing=0.04,
+    )
+
+    for row in traits_df.sort_values("species_name").itertuples():
+        dtype = DispersalType(row.dispersal_type)
+        col = col_map[dtype]
+
+        symbol = MARKER_SYMBOLS[facet_counts[dtype] % len(MARKER_SYMBOLS)]
+        facet_counts[dtype] += 1
+
+        if dtype == DispersalType.WIND:
+            dash = "solid"
+        elif dtype == DispersalType.ANIMAL:
+            dash = "dash"
+        else:
+            dash = "dot"
+
+        lifespan = int(round(row.mean_life_span))
+        ages = np.arange(0, lifespan + 1, dtype=int)
+        height_classes = np.minimum(
+            ages // int(row.years_per_height_class),
+            int(row.maximal_height_class),
+        )
+
+        marker_sizes = [0] * (len(ages) - 1) + [9]
+
+        fig.add_trace(
+            go.Scatter(
+                x=ages,
+                y=height_classes,
+                mode="lines+markers",
+                name=row.species_name,
+                line={
+                    "color": DISPERSAL_COLORS[dtype],
+                    "width": 2,
+                    "dash": dash,
+                    "shape": "hv",
+                },
+                marker={
+                    "symbol": symbol,
+                    "size": marker_sizes,
+                    "line": {"width": 1, "color": "white"},
+                },
+                hovertemplate=(
+                    f"<b>{row.species_name}</b> ({dtype.value})<br>"
+                    "Age: %{x} yr<br>"
+                    "Height class k: %{y} "
+                    f"(K = {row.maximal_height_class}, T = {row.years_per_height_class} yr)<br>"
+                    f"Mean lifespan: {lifespan} yr"
+                    "<extra></extra>"
+                ),
+            ),
+            row=1,
+            col=col,
+        )
+
+    fig.update_xaxes(
+        title_text="Tree Age [years]",
+        range=[0, max_lifespan * 1.04],
+    )
+    fig.update_yaxes(
+        dtick=1,
+        range=[0, max_height_class + 0.5],
+    )
+    fig.update_yaxes(title_text="Height Class (k)", row=1, col=1)
+
+    fig.update_layout(
+        title={
+            "text": "Tree Height Class Growth Over Mean Lifespan",
+            "x": 0.5,
+            "xanchor": "center",
+        },
+        legend={"itemsizing": "constant"},
+        height=480,
+        template="plotly_white",
+        margin={"t": 80, "b": 50, "l": 60, "r": 30},
     )
     return fig

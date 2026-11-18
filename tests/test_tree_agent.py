@@ -13,7 +13,7 @@ def dummy_rng() -> np.random.Generator:
 
 @pytest.fixture
 def tree_species_config() -> dict[str, TreeConfig]:
-    return load_tree_configs("./data/trees_vienna.csv")
+    return load_tree_configs("./data/tree_species_config.csv")
 
 @pytest.fixture
 def ahorn_tree_config(tree_species_config) -> TreeConfig:

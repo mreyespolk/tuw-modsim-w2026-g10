@@ -436,7 +436,8 @@ def plot_species_lifecycle_timelines(traits_df: pd.DataFrame) -> go.Figure:
             orientation="h",
             marker_color="#33965B",
             customdata=ordered["mean_life_span"],
-            hovertemplate="<b>%{y}</b><br>Reproductive duration: %{x} yr<br>Mean lifespan (L): %{customdata} yr<extra></extra>",
+            hovertemplate=("<b>%{y}</b><br>Reproductive duration: %{x} yr<br>"
+                           "Mean lifespan (L): %{customdata} yr<extra></extra>"),
         )
     )
     fig.add_trace(

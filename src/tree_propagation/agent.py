@@ -39,7 +39,8 @@ class TreeAgent:
         
 
     def __repr__(self):
-        return f"TreeAgent(species={self.species_config.species_name}, age={self.age}, height_class={self.height_class}, seeds={self.seeds})"
+        return (f"TreeAgent(species={self.species_config.species_name}, "
+                f"age={self.age}, height_class={self.height_class}, seeds={self.seeds})")
 
     @classmethod
     def from_height_class(cls, species_config: TreeConfig, height_class: int, x: int = 0, y: int = 0) -> "TreeAgent":

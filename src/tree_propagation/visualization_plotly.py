@@ -131,14 +131,15 @@ def plot_simulated_seed_shadow_and_distance_histogram(
     result: SeedShadowResult, metrics: SeedShadowMetrics, max_scatter_points: int = 100_000
 ) -> go.Figure:
     """Creates an interactive, zoomable 2D seed shadow scatterplot and distance distribution."""
+    title_left = f"{result.species} ({result.dispersal_type}) — 2D Seed Shadow"
+    title_right = "Dispersal Distance Distribution"
+
     fig = make_subplots(
         rows=1,
         cols=2,
-        subplot_titles=(
-            f"{result.species} ({result.dispersal_type}) — 2D Seed Shadow",
-            "Dispersal Distance Distribution",
-        ),
-        horizontal_spacing=0.1,
+        column_widths=[0.32, 0.68],
+        subplot_titles=(title_left, title_right),
+        horizontal_spacing=0.12,
     )
 
     xs, ys = result.xs, result.ys
@@ -175,7 +176,8 @@ def plot_simulated_seed_shadow_and_distance_histogram(
                     "line": {"width": 0.35, "color": "rgba(13, 66, 40, 0.3)"},
                     "colorbar": {
                         "title": "Distance [m]",
-                        "x": 0.44,
+                        "x": 0.288,
+                        "xanchor": "left",
                         "len": 0.85,
                         "tickvals": [t**power for t in tick_vals_m],
                         "ticktext": [f"{t:g}" for t in tick_vals_m],
@@ -252,12 +254,20 @@ def plot_simulated_seed_shadow_and_distance_histogram(
             font={"color": "dimgray", "size": 12},
         )
 
-    fig.update_xaxes(title_text="x [m] (East →)", range=[-max_extent, max_extent], row=1, col=1)
-    fig.update_yaxes(
-        title_text="y [m] (North ↑)",
+    fig.update_xaxes(
+        title_text="x [m]\n(East →)",
         range=[-max_extent, max_extent],
-        scaleanchor="x",
+        scaleanchor="y",
         scaleratio=1,
+        constrain="domain",
+        constraintoward="right",
+        row=1,
+        col=1,
+    )
+    # TO DO: Figure out how we can rotate this so it is horizontal
+    fig.update_yaxes(
+        title_text="y [m]\n(North ↑)",
+        range=[-max_extent, max_extent],
         constrain="domain",
         row=1,
         col=1,
@@ -307,6 +317,9 @@ def plot_simulated_seed_shadow_and_distance_histogram(
     fig.update_xaxes(title_text="Distance r [m]", row=1, col=2)
     fig.update_yaxes(title_text="Probability Density", row=1, col=2)
 
+    fig.update_annotations(yshift=8, selector={"text": title_left})
+    fig.update_annotations(yshift=8, selector={"text": title_right})
+
     fig.update_layout(
         height=550,
         template="plotly_white",
@@ -314,7 +327,7 @@ def plot_simulated_seed_shadow_and_distance_histogram(
         paper_bgcolor="#F8F9FA",
         dragmode="zoom",
         legend={"orientation": "h", "yanchor": "bottom", "y": -0.22, "xanchor": "center", "x": 0.5},
-        margin={"t": 60, "b": 90, "l": 50, "r": 30},
+        margin={"t": 70, "b": 90, "l": 50, "r": 30},
     )
 
     return fig

@@ -30,13 +30,28 @@ class TreeAgent:
 
         self._validate_init_params()
 
-    def _validate_init_params(self):
-        if (
-            (self.age is None or self.age < 0) or 
-            (self.height_class is None or self.height_class < 0)
+    def _validate_init_params(self) -> None:
+        if not isinstance(self.species_config, TreeConfig):
+            raise TypeError("'species_config' must be an instance of TreeConfig.")
+
+        for name, val in (
+            ("age", self.age),
+            ("height_class", self.height_class),
+            ("x", self.x),
+            ("y", self.y),
         ):
-            raise ValueError("Age and Height class must be non negative.")
-        
+            if not isinstance(val, int) or isinstance(val, bool) or val < 0:
+                raise ValueError(f"'{name}' must be a non-negative integer, got {val!r}.")
+
+        if self.height_class > self.species_config.maximal_height_class:
+            raise ValueError(
+                f"'height_class' ({self.height_class}) cannot exceed "
+                f"maximal_height_class ({self.species_config.maximal_height_class}) "
+                f"for species '{self.species_config.species_name}'."
+            )
+
+        if int(self.age / self.species_config.years_per_height_class) != self.height_class:
+            raise ValueError("Height class of agent does not match the expected height class by it's age.")
 
     def __repr__(self):
         return (f"TreeAgent(species={self.species_config.species_name}, "

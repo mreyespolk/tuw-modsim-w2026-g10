@@ -580,7 +580,7 @@ def plot_species_lifecycle_timelines(traits_df: pd.DataFrame) -> go.Figure:
     fig.add_trace(
         go.Bar(
             y=ordered["species_name"],
-            x=ordered["reproductive_span"],
+            x=ordered["mean_reproductive_span"],
             name="Reproductive Span (A → L)",
             orientation="h",
             marker_color="#33965B",
@@ -592,7 +592,7 @@ def plot_species_lifecycle_timelines(traits_df: pd.DataFrame) -> go.Figure:
     fig.add_trace(
         go.Scatter(
             y=ordered["species_name"],
-            x=ordered["time_to_max_height"],
+            x=ordered["years_to_max_height"],
             mode="markers",
             name="Reaches Max Height Class (K · T)",
             marker={"symbol": "diamond", "size": 10, "color": "deeppink", "line": {"width": 1, "color": "black"}},

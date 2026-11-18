@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from tree_propagation.agent import TreeAgent
-from tree_propagation.tree_config import TreeConfig, load_tree_configs
+from tree_propagation.tree_config import TreeConfig, load_tree_configs_from_csv
 
 # python -m pytest -v tests/test_tree_agent.py 
 
@@ -13,7 +13,7 @@ def dummy_rng() -> np.random.Generator:
 
 @pytest.fixture
 def tree_species_config() -> dict[str, TreeConfig]:
-    return load_tree_configs("./data/tree_species_config.csv")
+    return load_tree_configs_from_csv("./data/tree_species_config.csv")
 
 @pytest.fixture
 def ahorn_tree_config(tree_species_config) -> TreeConfig:

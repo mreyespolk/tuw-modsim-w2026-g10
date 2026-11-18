@@ -14,7 +14,7 @@ from tree_propagation.simulation import simulate_seed_shadow
 from tree_propagation.tree_config import (
     SPECIES_TRAIT_LABELS,
     TreeConfig,
-    load_tree_configs,
+    load_tree_configs_from_csv,
 )
 from tree_propagation.utils import build_species_trait_table, windrose_to_dataframe
 from tree_propagation.visualization_plotly import (
@@ -47,7 +47,7 @@ class SimulationParams:
 
 @st.cache_data
 def get_tree_configs(csv_path: str) -> dict[str, TreeConfig]:
-    return load_tree_configs(csv_path)
+    return load_tree_configs_from_csv(csv_path)
 
 
 def format_species_properties(config: TreeConfig):

@@ -5,18 +5,19 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import streamlit as st
-from src.tree_propagation.consts import DEFAULT_RANDOM_SEED
-from src.tree_propagation.environment import EnvironmentState
-from src.tree_propagation.metrics import evaluate_seed_shadow
-from src.tree_propagation.models import SeedShadowMetrics
-from src.tree_propagation.simulation import simulate_seed_shadow
-from src.tree_propagation.tree_config import (
+
+from tree_propagation.consts import DEFAULT_RANDOM_SEED
+from tree_propagation.environment import EnvironmentState
+from tree_propagation.metrics import evaluate_seed_shadow
+from tree_propagation.models import SeedShadowMetrics
+from tree_propagation.simulation import simulate_seed_shadow
+from tree_propagation.tree_config import (
     SPECIES_TRAIT_LABELS,
     TreeConfig,
     load_tree_configs,
 )
-from src.tree_propagation.utils import build_species_trait_table, windrose_to_dataframe
-from src.tree_propagation.visualization_plotly import (
+from tree_propagation.utils import build_species_trait_table, windrose_to_dataframe
+from tree_propagation.visualization_plotly import (
     plot_dispersal_reach_by_height_class,
     plot_pioneer_climax_tradeoff,
     plot_simulated_seed_shadow_and_distance_histogram,
@@ -25,7 +26,7 @@ from src.tree_propagation.visualization_plotly import (
     plot_species_trait_heatmap,
     plot_wind_rose,
 )
-from src.tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
+from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

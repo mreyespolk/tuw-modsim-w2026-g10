@@ -1,10 +1,11 @@
 from collections.abc import Mapping
 
 import pandas as pd
-from src.tree_propagation.dispersal import compute_mean_dispersal_distance
-from src.tree_propagation.environment import EnvironmentState
-from src.tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
-from src.tree_propagation.wind_config import WindRose
+
+from tree_propagation.dispersal import compute_mean_dispersal_distance
+from tree_propagation.environment import EnvironmentState
+from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
+from tree_propagation.wind_config import WindRose
 
 
 def windrose_to_dataframe(wind_rose: WindRose) -> pd.DataFrame:

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from src.tree_propagation.types import DispersalType
+from tree_propagation.types import DispersalType
 
 
 @dataclass(frozen=True)

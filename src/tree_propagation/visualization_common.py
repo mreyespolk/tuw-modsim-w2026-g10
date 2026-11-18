@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.tree_propagation.models import SeedShadowResult
+from tree_propagation.models import SeedShadowResult
 
 COMPASS_DIRECTIONS: tuple[str, ...] = ("N", "S", "E", "W")
 

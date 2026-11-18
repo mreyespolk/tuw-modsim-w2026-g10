@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import stats
 
-from src.tree_propagation.models import SeedShadowMetrics, SeedShadowResult
+from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
 
 
 def evaluate_seed_shadow(result: SeedShadowResult) -> SeedShadowMetrics:

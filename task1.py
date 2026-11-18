@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from src.tree_propagation.agent import TreeAgent
-from src.tree_propagation.tree_config import load_tree_configs
+from tree_propagation.agent import TreeAgent
+from tree_propagation.tree_config import load_tree_configs
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

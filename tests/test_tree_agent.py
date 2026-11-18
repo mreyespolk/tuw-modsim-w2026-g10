@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from src.tree_propagation.agent import TreeAgent
-from src.tree_propagation.tree_config import TreeConfig, load_tree_configs
+from tree_propagation.agent import TreeAgent
+from tree_propagation.tree_config import TreeConfig, load_tree_configs
 
 # python -m pytest -v tests/test_tree_agent.py 
 

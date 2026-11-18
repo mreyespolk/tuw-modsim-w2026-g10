@@ -1,12 +1,13 @@
 import numpy as np
-from src.tree_propagation.dispersal import (
+
+from tree_propagation.dispersal import (
     compute_mean_dispersal_distance,
     empty_dispersal_result,
     sample_dispersal_offsets,
 )
-from src.tree_propagation.environment import EnvironmentState
-from src.tree_propagation.models import DispersalHistory
-from src.tree_propagation.tree_config import TreeConfig
+from tree_propagation.environment import EnvironmentState
+from tree_propagation.models import DispersalHistory
+from tree_propagation.tree_config import TreeConfig
 
 
 class TreeAgent:

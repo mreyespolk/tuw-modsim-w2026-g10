@@ -3,9 +3,9 @@ import numpy as np
 import seaborn as sns
 from matplotlib import patches
 
-from src.tree_propagation.models import SeedShadowResult
-from src.tree_propagation.types import DispersalType
-from src.tree_propagation.visualization_common import (
+from tree_propagation.models import SeedShadowResult
+from tree_propagation.types import DispersalType
+from tree_propagation.visualization_common import (
     compass_label_positions,
     compute_exponential_pdf_curve,
     compute_plot_extent,

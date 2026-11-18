@@ -150,11 +150,10 @@ def render_seed_shadow_tab(config: TreeConfig, params: SimulationParams) -> None
 
 
 def render_wind_tab(wind_rose: WindRose) -> None:
-    col_chart, col_table = st.columns([0.45, 0.55], vertical_alignment="center")
-    with col_chart:
-        st.plotly_chart(plot_wind_rose(wind_rose), use_container_width=True)
+    st.plotly_chart(plot_wind_rose(wind_rose), use_container_width=True)
+    _, col_table, _ = st.columns([0.25, 0.5, 0.25], vertical_alignment="center")
     with col_table:
-        st.subheader("Sector Probabilities (Blowing From)")
+        st.subheader("Sector Probabilities (Blowing From Direction)")
         st.table(windrose_to_dataframe(wind_rose))
         st.caption(
             "Wind directions denote where wind blows *from*; dispersed seeds travel "

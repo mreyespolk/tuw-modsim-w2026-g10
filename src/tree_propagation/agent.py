@@ -50,7 +50,11 @@ class TreeAgent:
                 f"for species '{self.species_config.species_name}'."
             )
 
-        if int(self.age / self.species_config.years_per_height_class) != self.height_class:
+        expected_k = min(
+            self.species_config.maximal_height_class,
+            self.age // self.species_config.years_per_height_class,
+        )
+        if self.height_class != expected_k:
             raise ValueError("Height class of agent does not match the expected height class by it's age.")
 
     def __repr__(self):

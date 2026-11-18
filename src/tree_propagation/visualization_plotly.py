@@ -249,7 +249,7 @@ def plot_simulated_seed_shadow_and_distance_histogram(
         )
 
     fig.update_xaxes(
-        title_text="x [m]\n(East →)",
+        title_text="x [m]<br>(East →)",
         range=[-max_extent, max_extent],
         scaleanchor="y",
         scaleratio=1,
@@ -260,7 +260,7 @@ def plot_simulated_seed_shadow_and_distance_histogram(
     )
     # TO DO: Figure out how we can rotate this so it is horizontal
     fig.update_yaxes(
-        title_text="y [m]\n(North ↑)",
+        title_text="y [m]<br>(North ↑)",
         range=[-max_extent, max_extent],
         constrain="domain",
         row=1,

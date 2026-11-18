@@ -8,6 +8,7 @@ from tree_propagation.dispersal import (
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.models import DispersalHistory
 from tree_propagation.tree_config import TreeConfig
+from tree_propagation.types import AgentStatus
 
 
 class TreeAgent:
@@ -27,6 +28,8 @@ class TreeAgent:
         self.y = y
 
         self.seeds = 0
+
+        self.state = AgentStatus.ALIVE
 
         self._validate_init_params()
 
@@ -64,6 +67,7 @@ class TreeAgent:
 
     @classmethod
     def from_height_class(cls, species_config: TreeConfig, height_class: int, x: int = 0, y: int = 0) -> "TreeAgent":
+        """Instantiate an new agent when the age is not known, but the height class is."""
         estimated_age = height_class * species_config.years_per_height_class
         return cls(
             species_config=species_config,
@@ -75,6 +79,7 @@ class TreeAgent:
 
     @classmethod
     def newborn(cls, species_config: TreeConfig, x: int = 0, y: int = 0) -> "TreeAgent":
+        """Instantiate a new agent as a newborn."""
         return cls(
             species_config=species_config,
             age=0,
@@ -85,7 +90,13 @@ class TreeAgent:
 
     @property
     def is_mature(self):
+        """Whether the agent is at or over it's species maturity age."""
         return self.age >= self.species_config.maturity_age
+
+    @property
+    def height_adjusted_fecundity(self):
+        """The fecundity of the tree species modified by the agent's height class."""
+        return self.species_config.fecundity * self.height_class
 
     def mean_dispersal_distance(self, environment_state: EnvironmentState) -> float:
         return compute_mean_dispersal_distance(
@@ -95,15 +106,22 @@ class TreeAgent:
         )
 
     def grow(self):
+        """Not implemented: Ages the agent one time-step."""
+        raise NotImplementedError
+
+    def _evaluate_death_outcome(self):
+        """Not implemented: Obtains the outcome of whether the agent dies on this timestep or not."""
         raise NotImplementedError
 
     def die(self, rng: np.random.Generator):
+        """Not implemented: Performs the action of killing the agent."""
         raise NotImplementedError
 
     def produce_seeds(self, rng: np.random.Generator) -> int:
+        """Generate a set amount of seeds backed by a random distribution. (Currently only Poisson)"""
         if self.is_mature and self.height_class > 0:
             self.seeds = int(
-                rng.poisson(self.species_config.fecundity * self.height_class)
+                rng.poisson(self.height_adjusted_fecundity)
             )
         else:
             self.seeds = 0

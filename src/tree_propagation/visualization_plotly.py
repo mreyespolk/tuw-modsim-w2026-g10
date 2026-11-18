@@ -430,7 +430,7 @@ def plot_dispersal_reach_by_age(
         ages = list(range(0, lifespan + 1))
 
         ks = [
-            min(cfg.maximal_height_class, int(age // cfg.years_per_height_class) + 1)
+            min(cfg.maximal_height_class, int(age // cfg.years_per_height_class))
             for age in ages
         ]
 

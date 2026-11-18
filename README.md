@@ -8,7 +8,13 @@
 
 The project instructions are contained in [tree_propagation.pdf](./docs/tree_propagation.pdf).
 
-# Requirements
+## Project planning
+
+Project plan including responsabilities, status and dependencies.
+
+https://docs.google.com/spreadsheets/d/1kVtIJiJGVDGRkX_ikg5S-Yd9biN36jSuWd2YMtzkjLM/edit?gid=0#gid=0
+
+## Requirements
 
 ```sh
 python3 -m venv .venv
@@ -16,7 +22,7 @@ source .venv/bin/activate
 pip install -e ".[notebook,dev]"
 ```
 
-# Streamlit
+## Streamlit
 
 Launch the streamlit app:
 
@@ -24,9 +30,9 @@ Launch the streamlit app:
 streamlit run app.py
 ```
 
-## Taking screenshots of Streamlit
+### Taking screenshots of Streamlit
 
-### Firefox
+#### Firefox
 1. Open the dev tools: `CTRL + SHIFT + I`
 2. Open the console and use the command to allow streamlit to overflow
     ```javascript

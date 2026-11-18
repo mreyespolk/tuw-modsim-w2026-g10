@@ -1,9 +1,9 @@
 import numpy as np
 
-from src.tree_propagation.environment import EnvironmentState
-from src.tree_propagation.tree_config import TreeConfig
-from src.tree_propagation.types import DispersalType
-from src.tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
+from tree_propagation.environment import EnvironmentState
+from tree_propagation.tree_config import TreeConfig
+from tree_propagation.types import DispersalType
+from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 
 
 def empty_dispersal_result() -> tuple[np.ndarray, np.ndarray, np.ndarray]:

@@ -13,7 +13,7 @@ The project instructions are contained in [tree_propagation.pdf](./docs/tree_pro
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[notebook,dev]"
 ```
 
 # Streamlit

@@ -4,16 +4,17 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from src.tree_propagation.models import SeedShadowMetrics, SeedShadowResult
-from src.tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
-from src.tree_propagation.types import DispersalType
-from src.tree_propagation.visualization_common import (
+
+from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
+from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
+from tree_propagation.types import DispersalType
+from tree_propagation.visualization_common import (
     compass_label_positions,
     compute_exponential_pdf_curve,
     compute_plot_extent,
     compute_sector_boundary_endpoints,
 )
-from src.tree_propagation.wind_config import WindRose
+from tree_propagation.wind_config import WindRose
 
 DISPERSAL_COLORS = {
     DispersalType.WIND: "#2B7BBA",

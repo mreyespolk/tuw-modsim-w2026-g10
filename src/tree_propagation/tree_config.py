@@ -2,7 +2,7 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.tree_propagation.types import DispersalType
+from tree_propagation.types import DispersalType
 
 SPECIES_TRAIT_LABELS = {
     "shade_tolerance": "Shade Tolerance τ [0–1]",

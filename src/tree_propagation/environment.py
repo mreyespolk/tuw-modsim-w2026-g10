@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
+from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 
 
 @dataclass

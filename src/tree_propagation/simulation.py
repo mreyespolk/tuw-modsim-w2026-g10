@@ -1,10 +1,10 @@
 import numpy as np
 
-from src.tree_propagation.agent import TreeAgent
-from src.tree_propagation.consts import DEFAULT_RANDOM_SEED
-from src.tree_propagation.environment import EnvironmentState
-from src.tree_propagation.models import DispersalHistory, SeedShadowResult
-from src.tree_propagation.tree_config import TreeConfig
+from tree_propagation.agent import TreeAgent
+from tree_propagation.consts import DEFAULT_RANDOM_SEED
+from tree_propagation.environment import EnvironmentState
+from tree_propagation.models import DispersalHistory, SeedShadowResult
+from tree_propagation.tree_config import TreeConfig
 
 
 def simulate_seed_shadow(

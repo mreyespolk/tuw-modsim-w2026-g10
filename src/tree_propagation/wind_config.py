@@ -25,7 +25,7 @@ class WindRose:
         total = sum(self.probabilities.values())
         if not math.isclose(total, 1.0, rel_tol=1e-9):
             raise ValueError(f"WindRose probabilities must sum to 1.0, got {total}")
-        if len(self.probabilities) != 8:
+        if set(self.probabilities.keys()) != set(WindDirection):
             raise ValueError(f"Wind Rose must have probabilities for 8 cardinal directions. {WindDirection}")
 
     def sample_downwind_radians(self, count: int, rng: np.random.Generator) -> np.ndarray:

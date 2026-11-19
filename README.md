@@ -14,6 +14,15 @@ Project plan including responsabilities, status and dependencies.
 
 https://docs.google.com/spreadsheets/d/1kVtIJiJGVDGRkX_ikg5S-Yd9biN36jSuWd2YMtzkjLM/edit?gid=0#gid=0
 
+## Spatial model conventions
+
+The project instructions define the model on a grid of square cells (edge length Δ, default 5 m). Tree agents keep exact positions grid cell coordinates are derived from them:
+
+- **Coordinates:** a tree's position `(x, y)` is stored as real-valued **meters** (`+x` = East, `+y` = North). Meters are the single spatial unit for positions, dispersal distances, cell size and plots.
+- **Dispersal origin:** seeds are always dispersed from the parent tree's **exact** `(x, y)`. Landing position = parent `(x, y)` + sampled offset `(dx, dy)`.
+- **Seedling placement:** a tree established from a seed is created at the **exact** landing location.
+- **Grid:** cells are derived from the meter coordinates using the cell size Δ. Grid rules (one tree per cell, occupancy, Moore-neighbourhood shade, seeds outside the grid are lost) use the cell *derived* from a exact metric position.
+
 ## Requirements
 
 ```sh

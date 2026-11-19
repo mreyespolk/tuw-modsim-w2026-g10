@@ -19,8 +19,7 @@ SEED_DRAWS = 50
 
 def _agent_at_age(config: TreeConfig, age: int) -> TreeAgent:
     """Builds an agent whose height class is consistent with its age."""
-    height_class = min(config.maximal_height_class, age // config.years_per_height_class)
-    return TreeAgent(species_config=config, age=age, height_class=height_class)
+    return TreeAgent(species_config=config, age=age, height_class=config.height_class_at_age(age))
 
 
 # region Construction
@@ -56,11 +55,28 @@ def test_rejects_height_class_above_species_maximum(ahorn_tree_config: TreeConfi
 
 @pytest.mark.parametrize(
     "kwargs",
-    [{"age": -1}, {"x": -1}, {"y": -1}, {"age": 1.5}, {"age": True}],
+    [{"age": -1}, {"age": 1.5}, {"age": True}, {"height_class": -1}],
 )
 def test_rejects_invalid_integer_params(ahorn_tree_config: TreeConfig, kwargs: dict):
     with pytest.raises(ValueError, match="non-negative integer"):
         TreeAgent(species_config=ahorn_tree_config, **kwargs)
+
+
+@pytest.mark.parametrize(
+    ("x", "y"),
+    [(0, 0), (-12.5, 3.75), (6585.4, 6956.4), (np.float64(-1.5), np.int64(2)), (-1e9, 1e9)],
+)
+def test_accepts_arbitrary_finite_coordinates(ahorn_tree_config: TreeConfig, x, y):
+    agent = TreeAgent.newborn(ahorn_tree_config, x=x, y=y)
+    assert (agent.x, agent.y) == (float(x), float(y))
+    assert isinstance(agent.x, float) and isinstance(agent.y, float)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf"), "1.0", None, True])
+@pytest.mark.parametrize("axis", ["x", "y"])
+def test_rejects_non_finite_or_non_numeric_coordinates(ahorn_tree_config: TreeConfig, axis: str, bad):
+    with pytest.raises(ValueError, match="finite real number"):
+        TreeAgent.newborn(ahorn_tree_config, **{axis: bad})
 
 
 def test_rejects_non_tree_config():
@@ -107,6 +123,21 @@ def test_disperse_seeds_resets_stock_and_returns_one_point_per_seed(
     assert tree.seeds == 0
     assert xs.shape == ys.shape == distances.shape == (produced,)
     np.testing.assert_allclose(np.hypot(xs - tree.x, ys - tree.y), distances)
+
+
+def test_seeds_land_relative_to_off_origin_parent(ahorn_tree_config: TreeConfig):
+    """Same RNG stream from two parents differs only by the parent offset."""
+    def landings(x: float, y: float) -> tuple[np.ndarray, np.ndarray]:
+        rng = np.random.default_rng(7)
+        tree = TreeAgent.from_height_class(ahorn_tree_config, height_class=5, x=x, y=y)
+        tree.produce_seeds(rng=rng)
+        xs, ys, _ = tree.disperse_seeds(rng=rng, environment_state=EnvironmentState())
+        return xs, ys
+
+    xs0, ys0 = landings(0.0, 0.0)
+    xs1, ys1 = landings(-250.5, 1234.25)
+    np.testing.assert_allclose(xs1 - xs0, -250.5)
+    np.testing.assert_allclose(ys1 - ys0, 1234.25)
 
 
 def test_disperse_without_seeds_returns_empty_arrays(ahorn_tree_config: TreeConfig, rng: np.random.Generator):

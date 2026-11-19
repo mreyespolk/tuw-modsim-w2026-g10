@@ -90,11 +90,6 @@ def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
     )
 
 
-def render_wind_rose_panel(wind_rose: WindRose) -> None:
-    st.plotly_chart(visualization_plotly.plot_wind_rose(wind_rose), width="stretch")
-    st.table(windrose_to_dataframe(wind_rose))
-
-
 def render_metrics_bar(metrics: SeedShadowMetrics) -> None:
     c1, c2, c3, c4 = st.columns(4)
     c1.metric(
@@ -139,12 +134,6 @@ def render_seed_shadow_tab(config: TreeConfig, params: SimulationParams) -> None
     else:
         fig = visualization_plotly.plot_simulated_seed_shadow_and_distance_histogram(result=result, metrics=metrics)
         st.plotly_chart(fig, width="stretch")
-
-#def render_single_tree_growth(config: TreeConfig):
-#    # TO DO: Generate an actual tree growing simulation
-#    _col_sim, col_math = st.columns(2)
-#    with col_math:
-#        st.plotly_chart(visualization_plotly.plot_growth_over_time(config), width="stretch")
 
 
 def render_wind_tab(wind_rose: WindRose) -> None:

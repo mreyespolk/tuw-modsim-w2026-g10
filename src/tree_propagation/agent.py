@@ -120,8 +120,11 @@ class TreeAgent:
 
     @classmethod
     def from_dict(
-        cls, input_dict: Mapping[str, Any], species_config: TreeConfig, col_override: dict = {}
+        cls, input_dict: Mapping[str, Any], species_config: TreeConfig, col_override: dict | None = None
     ) -> "TreeAgent":
+        if col_override is None:
+            col_override = {}
+
         age_col = col_override.get("age", "age")
         height_class_col = col_override.get("height_class", "height_class")
         x_col = col_override.get("x", "x")

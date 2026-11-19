@@ -1,7 +1,7 @@
 import numpy as np
 
 from tree_propagation.agent import TreeAgent
-from tree_propagation.consts import DEFAULT_RANDOM_SEED
+from tree_propagation.consts import DEFAULT_HEIGHT_CLASS, DEFAULT_RANDOM_SEED
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.models import DispersalHistory, SeedShadowResult
 from tree_propagation.tree_config import TreeConfig
@@ -10,7 +10,7 @@ from tree_propagation.tree_config import TreeConfig
 def simulate_seed_shadow(
     config: TreeConfig,
     environment_state: EnvironmentState,
-    height_class: int = 4,
+    height_class: int = DEFAULT_HEIGHT_CLASS,
     num_instances: int = 100,
     rng: np.random.Generator | None = None,
 ) -> SeedShadowResult:

@@ -1,10 +1,14 @@
-from collections.abc import Mapping
+from collections import Counter
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from tree_propagation.dispersal import compute_mean_dispersal_distance
+from tree_propagation.environment import EnvironmentState
 from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
 from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
 from tree_propagation.types import DispersalType
@@ -16,11 +20,23 @@ from tree_propagation.visualization_common import (
 )
 from tree_propagation.wind_config import WindRose
 
-DISPERSAL_COLORS = {
-    DispersalType.WIND: "#2B7BBA",
-    DispersalType.ANIMAL: "#D95F02",
-    DispersalType.GRAVITY: "#7570B3",
+
+@dataclass(frozen=True)
+class DispersalStyle:
+    """Consistent per-dispersal-type styling shared by all species charts."""
+
+    color: str
+    dash: str
+
+
+DISPERSAL_STYLES: dict[DispersalType, DispersalStyle] = {
+    DispersalType.WIND: DispersalStyle(color="#2B7BBA", dash="solid"),
+    DispersalType.GRAVITY: DispersalStyle(color="#7570B3", dash="dot"),
+    DispersalType.ANIMAL: DispersalStyle(color="#D95F02", dash="dash"),
 }
+
+# Left-to-right column order of the faceted (one subplot per dispersal type) charts.
+FACET_ORDER: tuple[DispersalType, ...] = (DispersalType.WIND, DispersalType.GRAVITY, DispersalType.ANIMAL)
 
 GRADUAL_GREENS = [
     [0.00, "#041A0F"],  # deep pine-black (0 m)
@@ -44,6 +60,71 @@ MARKER_SYMBOLS = (
     "triangle-down",
     "hexagon",
 )
+
+
+def _make_dispersal_facets() -> go.Figure:
+    """Creates a 1×N subplot grid with one shared-y column per dispersal type in FACET_ORDER."""
+    return make_subplots(
+        rows=1,
+        cols=len(FACET_ORDER),
+        shared_yaxes=True,
+        subplot_titles=[dtype.value.capitalize() for dtype in FACET_ORDER],
+        horizontal_spacing=0.04,
+    )
+
+
+def _facet_column(dispersal_type: DispersalType) -> int:
+    """1-based subplot column of a dispersal type in the faceted charts."""
+    return FACET_ORDER.index(dispersal_type) + 1
+
+
+def _facet_marker_symbols(dispersal_types: Iterable[DispersalType]) -> list[str]:
+    """Assigns marker symbols that cycle independently within each facet, in input order."""
+    seen: Counter[DispersalType] = Counter()
+    symbols: list[str] = []
+    for dtype in dispersal_types:
+        symbols.append(MARKER_SYMBOLS[seen[dtype] % len(MARKER_SYMBOLS)])
+        seen[dtype] += 1
+    return symbols
+
+
+def _lifespan_step_trace(
+    name: str,
+    dispersal_type: DispersalType,
+    symbol: str,
+    ages: Sequence[int] | np.ndarray,
+    values: Sequence[float] | np.ndarray,
+    hovertemplate: str,
+    customdata: Sequence[int] | np.ndarray | None = None,
+) -> go.Scatter:
+    """Step line over a species' lifespan, styled by dispersal type, with a marker at the final age only."""
+    style = DISPERSAL_STYLES[dispersal_type]
+    return go.Scatter(
+        x=ages,
+        y=values,
+        customdata=customdata,
+        mode="lines+markers",
+        name=name,
+        line={"color": style.color, "width": 2, "dash": style.dash, "shape": "hv"},
+        marker={
+            "symbol": symbol,
+            "size": [0] * (len(ages) - 1) + [9],
+            "line": {"width": 1, "color": "white"},
+        },
+        hovertemplate=hovertemplate,
+    )
+
+
+def _apply_facet_layout(fig: go.Figure, title: str) -> None:
+    """Shared title/legend/size layout for the faceted lifespan charts."""
+    fig.update_layout(
+        title={"text": title, "x": 0.5, "xanchor": "center"},
+        legend={"itemsizing": "constant"},
+        height=480,
+        template="plotly_white",
+        margin={"t": 80, "b": 50, "l": 60, "r": 30},
+    )
+
 
 def _nice_colorbar_ticks(cmax: float, target_ticks: int = 6) -> list[float]:
     """Generates clean, human-readable tick values from 0 up to cmax for any scale."""
@@ -328,108 +409,65 @@ def plot_simulated_seed_shadow_and_distance_histogram(
 
 def plot_dispersal_reach_by_age(
     species_config: Mapping[str, TreeConfig],
-    wind_strength: int = 10,
+    wind_strength: int = 1,
 ) -> go.Figure:
-    """Faceted line chart comparing theoretical mean dispersal distance r_bar over tree age."""
-    dispersal_order = [
-        DispersalType.WIND,
-        DispersalType.GRAVITY,
-        DispersalType.ANIMAL,
-    ]
-    col_map = {dtype: idx + 1 for idx, dtype in enumerate(dispersal_order)}
-    facet_counts = {dtype: 0 for dtype in dispersal_order}
+    """Faceted step chart of the theoretical mean dispersal distance r̄ over each species' lifespan.
 
-    max_lifespan = max(int(round(cfg.mean_life_span)) for cfg in species_config.values())
+    r̄ is computed with the same `compute_mean_dispersal_distance` used by the simulation, so the
+    chart cannot drift from the dispersal model.
+    """
+    environment = EnvironmentState(wind_strength=wind_strength)
+    configs = sorted(species_config.values(), key=lambda c: c.species_name)
+    symbols = _facet_marker_symbols(cfg.dispersal_type for cfg in configs)
+
+    max_lifespan = 0
     max_r_bar = 0.0
+    fig = _make_dispersal_facets()
 
-    fig = make_subplots(
-        rows=1,
-        cols=3,
-        shared_yaxes=True,
-        subplot_titles=[dtype.value.capitalize() for dtype in dispersal_order],
-        horizontal_spacing=0.04,
-    )
-
-    for cfg in sorted(species_config.values(), key=lambda c: c.species_name):
-        dtype = cfg.dispersal_type
-        col = col_map[dtype]
-
-        symbol = MARKER_SYMBOLS[facet_counts[dtype] % len(MARKER_SYMBOLS)]
-        facet_counts[dtype] += 1
-
-        lifespan = int(round(cfg.mean_life_span))
-        ages = list(range(0, lifespan + 1))
-
-        ks = [
-            min(cfg.maximal_height_class, int(age // cfg.years_per_height_class))
-            for age in ages
+    for cfg, symbol in zip(configs, symbols, strict=True):
+        lifespan = cfg.mean_life_span
+        ages = np.arange(0, lifespan + 1)
+        height_classes = np.minimum(ages // cfg.years_per_height_class, cfg.maximal_height_class)
+        r_bars = [
+            compute_mean_dispersal_distance(config=cfg, height_class=int(k), environment=environment)
+            for k in height_classes
         ]
-
-        if dtype == DispersalType.WIND:
-            assert cfg.wind_spreading_factor is not None
-            r_bars = [wind_strength * cfg.wind_spreading_factor * k for k in ks]
-            dash = "solid"
-        else:
-            assert cfg.mean_dispersal_distance is not None
-            r_bars = [cfg.mean_dispersal_distance for _ in ks]
-            dash = "dash" if dtype == DispersalType.ANIMAL else "dot"
-
-        if r_bars:
-            max_r_bar = max(max_r_bar, max(r_bars))
-
-        marker_sizes = [0] * (len(ages) - 1) + [9]
+        max_lifespan = max(max_lifespan, lifespan)
+        max_r_bar = max(max_r_bar, *r_bars)
 
         fig.add_trace(
-            go.Scatter(
-                x=ages,
-                y=r_bars,
-                customdata=ks,
-                mode="lines+markers",
+            _lifespan_step_trace(
                 name=cfg.species_name,
-                line={
-                    "color": DISPERSAL_COLORS[dtype],
-                    "width": 2,
-                    "dash": dash,
-                    "shape": "hv",
-                },
-                marker={
-                    "symbol": symbol,
-                    "size": marker_sizes,
-                    "line": {"width": 1, "color": "white"},
-                },
+                dispersal_type=cfg.dispersal_type,
+                symbol=symbol,
+                ages=ages,
+                values=r_bars,
+                customdata=height_classes,
                 hovertemplate=(
-                    f"<b>{cfg.species_name}</b> ({dtype.value})<br>"
+                    f"<b>{cfg.species_name}</b> ({cfg.dispersal_type.value})<br>"
                     "Age: %{x} yr (Height class k = %{customdata})<br>"
                     f"Mean lifespan: {lifespan} yr<br>"
                     "Theoretical mean r̄: %{y:.1f} m<extra></extra>"
                 ),
             ),
             row=1,
-            col=col,
+            col=_facet_column(cfg.dispersal_type),
         )
 
-    fig.update_xaxes(
-        title_text="Tree Age [years]",
-        range=[0, max_lifespan * 1.04],
-    )
-    fig.update_yaxes(range=[0, max_r_bar * 1.08])
+    fig.update_xaxes(title_text="Tree Age [years]", range=[0, max_lifespan * 1.04])
+    fig.update_yaxes(range=[0, max(max_r_bar, 1.0) * 1.08])
     fig.update_yaxes(title_text="Theoretical Mean Dispersal Radius r̄ [m]", row=1, col=1)
-
-    fig.update_layout(
-        title={
-            "text": f"Theoretical Mean Dispersal Distance (r̄) by Tree Age (Wind Strength s = {wind_strength:g})",
-            "x": 0.5,
-            "xanchor": "center",
-        },
-        legend={"itemsizing": "constant"},
-        height=480,
-        template="plotly_white",
-        margin={"t": 80, "b": 50, "l": 60, "r": 30},
+    _apply_facet_layout(
+        fig, f"Theoretical Mean Dispersal Distance (r̄) by Tree Age (Wind Strength s = {wind_strength:g})"
     )
     return fig
 
 def plot_pioneer_climax_tradeoff(traits_df: pd.DataFrame) -> go.Figure:
     """4D scatter comparing shade tolerance, maturity age, peak fecundity, and dispersal mode."""
+    # Headroom above the oldest maturity age keeps the largest markers and their labels in view.
+    max_maturity_age = float(traits_df["maturity_age"].max()) if not traits_df.empty else 0.0
+    y_max = max(max_maturity_age * 1.15 + 3.0, 10.0)
+
     fig = go.Figure()
 
     for dispersal_type in DispersalType:
@@ -448,7 +486,7 @@ def plot_pioneer_climax_tradeoff(traits_df: pd.DataFrame) -> go.Figure:
                 textfont={"size": 11},
                 marker={
                     "size": 14 + sub["peak_seed_rate"] * 1.8,
-                    "color": DISPERSAL_COLORS[dispersal_type],
+                    "color": DISPERSAL_STYLES[dispersal_type].color,
                     "opacity": 0.85,
                     "line": {"width": 1.5, "color": "white"},
                 },
@@ -477,8 +515,9 @@ def plot_pioneer_climax_tradeoff(traits_df: pd.DataFrame) -> go.Figure:
 
     fig.update_layout(
         title={"text": "Successional Strategy: Shade Tolerance vs. Maturity Age", "x": 0.5, "xanchor": "center"},
-        xaxis={"title": SPECIES_TRAIT_LABELS["shade_tolerance"], "range": [0.05, 1.0]},
-        yaxis={"title": SPECIES_TRAIT_LABELS["maturity_age"], "range": [0, 35]},
+        # Shade tolerance is validated to [0, 1]; small padding keeps edge markers fully visible.
+        xaxis={"title": SPECIES_TRAIT_LABELS["shade_tolerance"], "range": [-0.03, 1.03]},
+        yaxis={"title": SPECIES_TRAIT_LABELS["maturity_age"], "range": [0, y_max]},
         height=480,
         template="plotly_white",
         legend={"title": "Dispersal Type", "orientation": "h", "y": -0.18, "x": 0.5, "xanchor": "center"},
@@ -607,7 +646,7 @@ def plot_species_3d_scatter(
                 textfont={"size": 10},
                 marker={
                     "size": 7,
-                    "color": DISPERSAL_COLORS[dispersal_type],
+                    "color": DISPERSAL_STYLES[dispersal_type].color,
                     "opacity": 0.9,
                     "line": {"width": 1, "color": "white"},
                 },
@@ -638,65 +677,26 @@ def plot_species_3d_scatter(
 
 def plot_growth_over_time(traits_df: pd.DataFrame) -> go.Figure:
     """Faceted step-line chart comparing discrete height-class trajectories k(a) across species lifespans."""
-    dispersal_order = [
-        DispersalType.WIND,
-        DispersalType.GRAVITY,
-        DispersalType.ANIMAL,
-    ]
-    col_map = {dtype: idx + 1 for idx, dtype in enumerate(dispersal_order)}
-    facet_counts = {dtype: 0 for dtype in dispersal_order}
+    ordered = traits_df.sort_values("species_name")
+    dispersal_types = [DispersalType(d) for d in ordered["dispersal_type"]]
+    symbols = _facet_marker_symbols(dispersal_types)
 
-    max_lifespan = int(round(traits_df["mean_life_span"].max()))
+    max_lifespan = int(traits_df["mean_life_span"].max())
     max_height_class = int(traits_df["maximal_height_class"].max())
+    fig = _make_dispersal_facets()
 
-    fig = make_subplots(
-        rows=1,
-        cols=3,
-        shared_yaxes=True,
-        subplot_titles=[dtype.value.capitalize() for dtype in dispersal_order],
-        horizontal_spacing=0.04,
-    )
-
-    for row in traits_df.sort_values("species_name").itertuples():
-        dtype = DispersalType(row.dispersal_type)
-        col = col_map[dtype]
-
-        symbol = MARKER_SYMBOLS[facet_counts[dtype] % len(MARKER_SYMBOLS)]
-        facet_counts[dtype] += 1
-
-        if dtype == DispersalType.WIND:
-            dash = "solid"
-        elif dtype == DispersalType.ANIMAL:
-            dash = "dash"
-        else:
-            dash = "dot"
-
-        lifespan = int(round(row.mean_life_span))
-        ages = np.arange(0, lifespan + 1, dtype=int)
-        height_classes = np.minimum(
-            ages // int(row.years_per_height_class),
-            int(row.maximal_height_class),
-        )
-
-        marker_sizes = [0] * (len(ages) - 1) + [9]
+    for row, dtype, symbol in zip(ordered.itertuples(), dispersal_types, symbols, strict=True):
+        lifespan = int(row.mean_life_span)
+        ages = np.arange(0, lifespan + 1)
+        height_classes = np.minimum(ages // int(row.years_per_height_class), int(row.maximal_height_class))
 
         fig.add_trace(
-            go.Scatter(
-                x=ages,
-                y=height_classes,
-                mode="lines+markers",
-                name=row.species_name,
-                line={
-                    "color": DISPERSAL_COLORS[dtype],
-                    "width": 2,
-                    "dash": dash,
-                    "shape": "hv",
-                },
-                marker={
-                    "symbol": symbol,
-                    "size": marker_sizes,
-                    "line": {"width": 1, "color": "white"},
-                },
+            _lifespan_step_trace(
+                name=str(row.species_name),
+                dispersal_type=dtype,
+                symbol=symbol,
+                ages=ages,
+                values=height_classes,
                 hovertemplate=(
                     f"<b>{row.species_name}</b> ({dtype.value})<br>"
                     "Age: %{x} yr<br>"
@@ -707,28 +707,11 @@ def plot_growth_over_time(traits_df: pd.DataFrame) -> go.Figure:
                 ),
             ),
             row=1,
-            col=col,
+            col=_facet_column(dtype),
         )
 
-    fig.update_xaxes(
-        title_text="Tree Age [years]",
-        range=[0, max_lifespan * 1.04],
-    )
-    fig.update_yaxes(
-        dtick=1,
-        range=[0, max_height_class + 0.5],
-    )
+    fig.update_xaxes(title_text="Tree Age [years]", range=[0, max_lifespan * 1.04])
+    fig.update_yaxes(dtick=1, range=[0, max_height_class + 0.5])
     fig.update_yaxes(title_text="Height Class (k)", row=1, col=1)
-
-    fig.update_layout(
-        title={
-            "text": "Tree Height Class Growth Over Mean Lifespan",
-            "x": 0.5,
-            "xanchor": "center",
-        },
-        legend={"itemsizing": "constant"},
-        height=480,
-        template="plotly_white",
-        margin={"t": 80, "b": 50, "l": 60, "r": 30},
-    )
+    _apply_facet_layout(fig, "Tree Height Class Growth Over Mean Lifespan")
     return fig

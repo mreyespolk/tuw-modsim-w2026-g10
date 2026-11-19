@@ -1,6 +1,9 @@
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+from typing import overload
+
+import numpy as np
 
 import tree_propagation.type_validation as type_validation
 from tree_propagation.types import DispersalType
@@ -17,6 +20,22 @@ SPECIES_TRAIT_LABELS = {
     "peak_seed_rate": "Peak Seed Rate (φ · K) [/yr]",
     "mean_dispersal_radius": "Mean Dispersal Radius r̄ [m]",
 }
+
+
+@overload
+def height_class_at_age(age: int, years_per_height_class: int, maximal_height_class: int) -> int: ...
+@overload
+def height_class_at_age(age: np.ndarray, years_per_height_class: int, maximal_height_class: int) -> np.ndarray: ...
+def height_class_at_age(
+    age: int | np.ndarray, years_per_height_class: int, maximal_height_class: int
+) -> int | np.ndarray:
+    """Height class reached at a given age: k = min(K, ⌊age / T⌋).
+
+    Accepts a scalar age (returns int) or an integer array of ages (returns an array, element-wise).
+    """
+    k = np.minimum(np.asarray(age) // years_per_height_class, maximal_height_class)
+    return int(k) if np.ndim(k) == 0 else k
+
 
 @dataclass(frozen=True)
 class TreeConfig:
@@ -40,26 +59,26 @@ class TreeConfig:
 
         # Dispersal-specific checks
         if self.dispersal_type == DispersalType.WIND:
-            if not type_validation._is_positive_finite(self.wind_spreading_factor):
+            if not type_validation.is_positive_finite(self.wind_spreading_factor):
                 raise ValueError("WIND dispersal requires a positive 'wind_spreading_factor'.")
         elif self.dispersal_type in (DispersalType.ANIMAL, DispersalType.GRAVITY):
-            if not type_validation._is_positive_finite(self.mean_dispersal_distance):
+            if not type_validation.is_positive_finite(self.mean_dispersal_distance):
                 raise ValueError(
                     f"{self.dispersal_type.name} dispersal requires a positive 'mean_dispersal_distance'."
                 )
 
         # Trait bounds & types
-        if not type_validation._is_non_negative_finite(self.fecundity):
+        if not type_validation.is_non_negative_finite(self.fecundity):
             raise ValueError("'fecundity' must be a non-negative finite number.")
         if not (isinstance(self.shade_tolerance, (int, float)) and 0.0 <= self.shade_tolerance <= 1.0):
             raise ValueError("'shade_tolerance' must be between 0 and 1 inclusive.")
-        if not type_validation._is_strict_int(self.maturity_age) or self.maturity_age < 0:
+        if not type_validation.is_strict_int(self.maturity_age) or self.maturity_age < 0:
             raise ValueError("'maturity_age' must be a non-negative integer.")
-        if not type_validation._is_strict_int(self.years_per_height_class) or self.years_per_height_class < 1:
+        if not type_validation.is_strict_int(self.years_per_height_class) or self.years_per_height_class < 1:
             raise ValueError("'years_per_height_class' must be >= 1.")
-        if not type_validation._is_strict_int(self.maximal_height_class) or self.maximal_height_class < 1:
+        if not type_validation.is_strict_int(self.maximal_height_class) or self.maximal_height_class < 1:
             raise ValueError("'maximal_height_class' must be >= 1.")
-        if not type_validation._is_strict_int(self.mean_life_span) or self.mean_life_span < 1:
+        if not type_validation.is_strict_int(self.mean_life_span) or self.mean_life_span < 1:
             raise ValueError("'mean_life_span' must be >= 1.")
 
         # Cross-field relationships
@@ -88,6 +107,14 @@ class TreeConfig:
     def peak_seed_rate(self) -> float:
         """Peak seed production for the species."""
         return self.fecundity * self.maximal_height_class
+
+    @overload
+    def height_class_at_age(self, age: int) -> int: ...
+    @overload
+    def height_class_at_age(self, age: np.ndarray) -> np.ndarray: ...
+    def height_class_at_age(self, age: int | np.ndarray) -> int | np.ndarray:
+        """Height class this species reaches at `age` (scalar or array), capped at its maximal height class."""
+        return height_class_at_age(age, self.years_per_height_class, self.maximal_height_class)
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, str]) -> "TreeConfig":

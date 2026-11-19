@@ -1,5 +1,6 @@
 import numpy as np
 
+import tree_propagation.type_validation as type_validation
 from tree_propagation.dispersal import (
     compute_mean_dispersal_distance,
     empty_dispersal_result,
@@ -12,20 +13,31 @@ from tree_propagation.types import AgentStatus
 
 
 class TreeAgent:
+    """A single tree at position (x, y) in meters (+x = East, +y = North).
+
+    Coordinates may be any finite real number (negative values are valid, e.g. seeds landing
+    west/south of an origin parent). `age` and `height_class` are non-negative integers.
+
+    Spatial requirements (see README "Spatial model conventions"):
+    - `(x, y)` is the tree's exact position in meters; it is never a grid-cell index. Grid cells
+      are derived from it by a cell-size mapping.
+    - Seeds are dispersed from this exact position, never from a cell center.
+    - Trees established from seeds are created at the exact seed landing location.
+    """
+
     def __init__(
             self,
             species_config: TreeConfig,
             age: int = 0,
             height_class: int = 0,
-            x: int = 0,
-            y: int = 0,
-            
+            x: float = 0.0,
+            y: float = 0.0,
     ) -> None:
         self.species_config = species_config
         self.age = age
         self.height_class = height_class
-        self.x = x
-        self.y = y
+        self.x = float(x) if type_validation.is_finite_real(x) else x
+        self.y = float(y) if type_validation.is_finite_real(y) else y
 
         self.seeds = 0
 
@@ -37,14 +49,13 @@ class TreeAgent:
         if not isinstance(self.species_config, TreeConfig):
             raise TypeError("'species_config' must be an instance of TreeConfig.")
 
-        for name, val in (
-            ("age", self.age),
-            ("height_class", self.height_class),
-            ("x", self.x),
-            ("y", self.y),
-        ):
-            if not isinstance(val, int) or isinstance(val, bool) or val < 0:
+        for name, val in (("age", self.age), ("height_class", self.height_class)):
+            if not type_validation.is_strict_int(val) or val < 0:
                 raise ValueError(f"'{name}' must be a non-negative integer, got {val!r}.")
+
+        for name, val in (("x", self.x), ("y", self.y)):
+            if not type_validation.is_finite_real(val):
+                raise ValueError(f"'{name}' must be a finite real number, got {val!r}.")
 
         if self.height_class > self.species_config.maximal_height_class:
             raise ValueError(
@@ -53,10 +64,7 @@ class TreeAgent:
                 f"for species '{self.species_config.species_name}'."
             )
 
-        expected_k = min(
-            self.species_config.maximal_height_class,
-            self.age // self.species_config.years_per_height_class,
-        )
+        expected_k = self.species_config.height_class_at_age(self.age)
         if self.height_class != expected_k:
             raise ValueError("Height class of agent does not match the expected height class by it's age.")
 
@@ -66,7 +74,9 @@ class TreeAgent:
                 f"x={self.x}, y={self.y})")
 
     @classmethod
-    def from_height_class(cls, species_config: TreeConfig, height_class: int, x: int = 0, y: int = 0) -> "TreeAgent":
+    def from_height_class(
+        cls, species_config: TreeConfig, height_class: int, x: float = 0.0, y: float = 0.0
+    ) -> "TreeAgent":
         """Instantiate an new agent when the age is not known, but the height class is."""
         estimated_age = height_class * species_config.years_per_height_class
         return cls(
@@ -78,8 +88,12 @@ class TreeAgent:
         )
 
     @classmethod
-    def newborn(cls, species_config: TreeConfig, x: int = 0, y: int = 0) -> "TreeAgent":
-        """Instantiate a new agent as a newborn."""
+    def newborn(cls, species_config: TreeConfig, x: float = 0.0, y: float = 0.0) -> "TreeAgent":
+        """Instantiate a new agent as a newborn.
+
+        For a tree established from a seed, pass the exact seed landing location `(x_land, y_land)`
+        returned by `disperse_seeds`; do not snap it to a grid-cell center.
+        """
         return cls(
             species_config=species_config,
             age=0,
@@ -134,7 +148,15 @@ class TreeAgent:
         history: DispersalHistory | None = None,
         step: int = 0,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Disperses all seeds currently held by this tree and resets its seed stock."""
+        """Disperses all seeds currently held by this tree and resets its seed stock.
+
+        Seeds leave from the tree's exact `(x, y)` (never a grid-cell center), so the landing
+        positions are `x + dx`, `y + dy` in meters. These exact landing positions are where
+        seedlings are created; grid cells for occupancy/out-of-grid checks are derived from them.
+
+        Returns:
+            `(x_land, y_land, distances)` arrays in meters, one entry per dispersed seed.
+        """
         produced = self.seeds
         self.seeds = 0
 

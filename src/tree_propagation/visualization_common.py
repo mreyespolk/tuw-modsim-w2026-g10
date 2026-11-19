@@ -2,8 +2,6 @@ import numpy as np
 
 from tree_propagation.models import SeedShadowResult
 
-COMPASS_DIRECTIONS: tuple[str, ...] = ("N", "S", "E", "W")
-
 
 def compass_label_positions(margin: float = 0.03) -> list[tuple[str, tuple[float, float]]]:
     """Returns normalized (x, y) axis-domain coordinates for N, S, E, W labels."""

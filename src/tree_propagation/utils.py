@@ -2,6 +2,7 @@ from collections.abc import Mapping
 
 import pandas as pd
 
+from tree_propagation.consts import DEFAULT_HEIGHT_CLASS
 from tree_propagation.dispersal import compute_mean_dispersal_distance
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
@@ -16,7 +17,7 @@ def windrose_to_dataframe(wind_rose: WindRose) -> pd.DataFrame:
 
 def build_species_trait_table(
     species_config: Mapping[str, TreeConfig],
-    reference_height_class: int = 4,
+    reference_height_class: int = DEFAULT_HEIGHT_CLASS,
     environment: EnvironmentState | None = None,
 ) -> pd.DataFrame:
     """Builds a tabular DataFrame of raw and derived species traits for tables and plots."""

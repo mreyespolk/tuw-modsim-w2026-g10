@@ -159,6 +159,9 @@ def render_seed_shadow_tab(params: SimulationParams) -> None:
         fig = visualization_plotly.plot_simulated_seed_shadow_and_distance_histogram(result=result, metrics=metrics)
         st.plotly_chart(fig, width="stretch")
 
+        fig_transects = visualization_plotly.plot_directional_transects(result=result, wind_rose=DEFAULT_WIND_ROSE)
+        st.plotly_chart(fig_transects, width="stretch")
+
 
 def render_wind_tab(wind_rose: WindRose) -> None:
     st.plotly_chart(visualization_plotly.plot_wind_rose(wind_rose), width="stretch")

@@ -20,7 +20,7 @@ def build_species_trait_table(
     environment: EnvironmentState | None = None,
 ) -> pd.DataFrame:
     """Builds a tabular DataFrame of raw and derived species traits for tables and plots."""
-    env = environment if environment is not None else EnvironmentState(wind_strength=10)
+    env = environment if environment is not None else EnvironmentState()
     rows: list[dict[str, object]] = []
 
     for cfg in species_config.values():

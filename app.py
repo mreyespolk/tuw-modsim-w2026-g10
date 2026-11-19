@@ -10,7 +10,7 @@ import tree_propagation.visualization_plotly as visualization_plotly
 from tree_propagation.consts import DEFAULT_RANDOM_SEED
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.metrics import evaluate_seed_shadow
-from tree_propagation.models import SeedShadowMetrics
+from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
 from tree_propagation.simulation import simulate_seed_shadow
 from tree_propagation.tree_config import (
     SPECIES_TRAIT_LABELS,
@@ -90,11 +90,6 @@ def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
     )
 
 
-def render_wind_rose_panel(wind_rose: WindRose) -> None:
-    st.plotly_chart(visualization_plotly.plot_wind_rose(wind_rose), width="stretch")
-    st.table(windrose_to_dataframe(wind_rose))
-
-
 def render_metrics_bar(metrics: SeedShadowMetrics) -> None:
     c1, c2, c3, c4 = st.columns(4)
     c1.metric(
@@ -119,18 +114,42 @@ def render_metrics_bar(metrics: SeedShadowMetrics) -> None:
     c4.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
 
 
-def render_seed_shadow_tab(config: TreeConfig, params: SimulationParams) -> None:
-    rng = np.random.default_rng(params.seed)
-    env_state = EnvironmentState(wind_rose=DEFAULT_WIND_ROSE, wind_strength=params.wind_strength)
+@st.cache_data(show_spinner="Simulating seed shadow…", max_entries=16)
+def run_seed_shadow(
+    config_path: str,
+    species: str,
+    height_class: int,
+    wind_strength: int,
+    num_instances: int,
+    seed: int,
+) -> tuple[SeedShadowResult, SeedShadowMetrics]:
+    """Runs and evaluates a seed-shadow simulation, cached on its (hashable, primitive) inputs.
 
+    Streamlit reruns the whole script on every widget interaction; caching avoids re-simulating
+    when only unrelated widgets (e.g. the 3D explorer axes) change. Results are deterministic
+    for a given seed, so cached and fresh runs are identical.
+    """
+    config = get_tree_configs(config_path)[species]
+    env_state = EnvironmentState(wind_rose=DEFAULT_WIND_ROSE, wind_strength=wind_strength)
     result = simulate_seed_shadow(
         config=config,
-        height_class=params.height_class,
-        num_instances=params.num_instances,
         environment_state=env_state,
-        rng=rng,
+        height_class=height_class,
+        num_instances=num_instances,
+        rng=np.random.default_rng(seed),
     )
-    metrics = evaluate_seed_shadow(result)
+    return result, evaluate_seed_shadow(result)
+
+
+def render_seed_shadow_tab(params: SimulationParams) -> None:
+    result, metrics = run_seed_shadow(
+        config_path=str(DEFAULT_CONFIG_PATH),
+        species=params.species,
+        height_class=params.height_class,
+        wind_strength=params.wind_strength,
+        num_instances=params.num_instances,
+        seed=params.seed,
+    )
 
     render_metrics_bar(metrics)
 
@@ -139,12 +158,6 @@ def render_seed_shadow_tab(config: TreeConfig, params: SimulationParams) -> None
     else:
         fig = visualization_plotly.plot_simulated_seed_shadow_and_distance_histogram(result=result, metrics=metrics)
         st.plotly_chart(fig, width="stretch")
-
-#def render_single_tree_growth(config: TreeConfig):
-#    # TO DO: Generate an actual tree growing simulation
-#    _col_sim, col_math = st.columns(2)
-#    with col_math:
-#        st.plotly_chart(visualization_plotly.plot_growth_over_time(config), width="stretch")
 
 
 def render_wind_tab(wind_rose: WindRose) -> None:
@@ -219,7 +232,7 @@ def main() -> None:
         ["Seed Shadow Simulation", "Wind Rose", "Species Overview"]
     )
     with tab_sim:
-        render_seed_shadow_tab(configs[params.species], params)
+        render_seed_shadow_tab(params)
     with tab_wind:
         render_wind_tab(DEFAULT_WIND_ROSE)
     with tab_species:

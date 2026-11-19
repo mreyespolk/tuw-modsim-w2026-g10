@@ -296,28 +296,37 @@ def plot_simulated_seed_shadow_and_distance_histogram(
                 col=1,
             )
 
-    # Theoretical mean dispersal radius circle + legend entry
-    fig.add_shape(
-        type="circle",
-        x0=-r_bar,
-        y0=-r_bar,
-        x1=r_bar,
-        y1=r_bar,
-        line={"color": "red", "width": 2},
-        row=1,
-        col=1,
+    # Theoretical mean dispersal radius and quantiles circle + legend entry
+    rings = (
+        (r_bar * float(np.log(2.0)), f"50% Median ({r_bar * np.log(2.0):.1f} m)", "#D32F2F", "dot", 1.5),
+        (r_bar, f"Theoretical Mean ({r_bar:.1f} m)", "red", "solid", 2.0),
+        (r_bar * float(np.log(20.0)), f"95% Quantile ({r_bar * np.log(20.0):.1f} m)", "#B71C1C", "dash", 1.5),
     )
-    fig.add_trace(
-        go.Scatter(
-            x=[None],
-            y=[None],
-            mode="lines",
-            name=f"Theoretical Mean ({r_bar:.2f} m)",
-            line={"color": "red", "width": 2},
-        ),
-        row=1,
-        col=1,
-    )
+
+    for radius, label, color, dash, width in rings:
+        if radius <= 0.0:
+            continue
+        fig.add_shape(
+            type="circle",
+            x0=-radius,
+            y0=-radius,
+            x1=radius,
+            y1=radius,
+            line={"color": color, "width": width, "dash": dash},
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="lines",
+                name=label,
+                line={"color": color, "width": width, "dash": dash},
+            ),
+            row=1,
+            col=1,
+        )
 
     for label, (lx, ly) in compass_label_positions(margin=0.02):
         fig.add_annotation(

@@ -1,3 +1,4 @@
+import math
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -944,22 +945,27 @@ def plot_directional_transects(
     result: SeedShadowResult,
     wind_rose: WindRose = DEFAULT_WIND_ROSE,
     half_bins: int = 30,
+    max_dist: float | None = None,
+    cols: int = 1,
 ) -> go.Figure:
-    """Creates a 2×2 faceted signed-distance histogram across the four compass transects."""
-    transects = compute_directional_transects(result=result, wind_rose=wind_rose, half_bins=half_bins)
+    """Creates a faceted signed-distance histogram across the four compass transects."""
+    transects = compute_directional_transects(
+        result=result, wind_rose=wind_rose, half_bins=half_bins, max_dist=max_dist
+    )
+    rows = math.ceil(len(transects) / cols)
+    is_vertical = cols == 1
 
     fig = make_subplots(
-        rows=2,
-        cols=2,
+        rows=rows,
+        cols=cols,
         shared_xaxes=True,
         shared_yaxes=True,
         subplot_titles=[f"{t.title} ({t.seed_count:,})" for t in transects],
         horizontal_spacing=0.06,
-        vertical_spacing=0.14,
+        vertical_spacing=0.08 if is_vertical else 0.14,
     )
 
-    # Pixel offsets (x0, x1, y0, y1, fillcolor) for a 3-lobe leafy crown
-    canopy_scale = 1.8  # Increase/decrease to resize the entire crown
+    canopy_scale = 1.2 if is_vertical else 1.8
     canopy_lobes = (
         (-15 * canopy_scale, 2 * canopy_scale, -8 * canopy_scale, 8 * canopy_scale, "#2E7D32"),
         (-2 * canopy_scale, 15 * canopy_scale, -8 * canopy_scale, 8 * canopy_scale, "#388E3C"),
@@ -967,7 +973,7 @@ def plot_directional_transects(
     )
 
     for idx, t in enumerate(transects):
-        row_idx, col_idx = divmod(idx, 2)
+        row_idx, col_idx = divmod(idx, cols)
         row_idx += 1
         col_idx += 1
         show_legend = idx == 0
@@ -984,7 +990,7 @@ def plot_directional_transects(
                 hovertemplate=(
                     f"<b>{t.title}</b><br>"
                     "Signed distance: %{x:.1f} m<br>"
-                    "Global density: %{y:.5f}<extra></extra>"
+                    "Density: %{y:.5f}<extra></extra>"
                 ),
             ),
             row=row_idx,
@@ -1000,7 +1006,7 @@ def plot_directional_transects(
                     x=xs_branch,
                     y=pdf_branch,
                     mode="lines",
-                    name=f"Theoretical Exp (r̄ = {result.theoretical_mean_radius:.2f} m)",
+                    name=f"Exp PDF (r̄ = {result.theoretical_mean_radius:.2f} m)",
                     line={"color": "red", "width": 2, "dash": "dash"},
                     showlegend=show_legend and is_first_branch,
                     hoverinfo="skip",
@@ -1009,18 +1015,16 @@ def plot_directional_transects(
                 col=col_idx,
             )
 
-        # Tree trunk stopping just below the canopy
         fig.add_vline(
             x=0,
             y0=0.05,
             y1=1.0,
-            line_width=10,
+            line_width=8 if is_vertical else 10,
             line_color="#6D4C41",
             row=row_idx,  # type: ignore[arg-type]
             col=col_idx,  # type: ignore[arg-type]
         )
 
-        # Leafy crown pinned to the top of the trunk in domain-y / pixel space
         subplot_num = idx + 1
         x_ref = "x" if subplot_num == 1 else f"x{subplot_num}"
         y_dom_ref = "y domain" if subplot_num == 1 else f"y{subplot_num} domain"
@@ -1033,7 +1037,7 @@ def plot_directional_transects(
                 xsizemode="pixel",
                 ysizemode="pixel",
                 xanchor=0,
-                yanchor=0.89,
+                yanchor=0.87 if is_vertical else 0.89,
                 x0=x0,
                 x1=x1,
                 y0=y0,
@@ -1042,18 +1046,35 @@ def plot_directional_transects(
                 line={"color": "#1B5E20", "width": 1.2},
             )
 
-    fig.update_xaxes(title_text="Signed Distance [m]", row=2)
-    fig.update_yaxes(title_text="Global Probability Density", col=1)
+    fig.update_xaxes(title_text="Signed Distance [m]", row=rows)
+    fig.add_annotation(
+        text="Probability Density",
+        xref="paper",
+        yref="paper",
+        x=-0.14 if is_vertical else -0.07,
+        y=0.5,
+        textangle=-90,
+        showarrow=False,
+        font={"size": 12},
+    )
     fig.update_layout(
         title={
-            "text": "Directional Dispersal Transects (Parent Tree at 0 m)",
+            "text": "Directional Transects (Parent at 0 m)",
             "x": 0.5,
             "xanchor": "center",
         },
-        height=540,
+        height=640 if is_vertical else 540,
         template="plotly_white",
+        paper_bgcolor="#F8F9FA",
         bargap=0.05,
-        legend={"orientation": "h", "yanchor": "bottom", "y": -0.18, "xanchor": "center", "x": 0.5},
-        margin={"t": 75, "b": 85, "l": 65, "r": 25},
+        legend={
+            "orientation": "h",
+            "yanchor": "top",
+            "y": -0.10 if is_vertical else -0.18,
+            "xanchor": "center",
+            "x": 0.5,
+            "font": {"size": 10},
+        },
+        margin={"t": 55, "b": 70, "l": 55 if is_vertical else 65, "r": 15},
     )
     return fig

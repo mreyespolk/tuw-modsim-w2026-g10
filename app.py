@@ -16,13 +16,13 @@ from tree_propagation.simulation import (
     SeedDispersalSimulation,
     SeedDispersalSimulationParams,
 )
+from tree_propagation.tables import build_species_trait_table, windrose_to_dataframe
 from tree_propagation.tree_config import (
     SPECIES_TRAIT_LABELS,
     TreeConfig,
     load_tree_configs_from_csv,
 )
 from tree_propagation.types import DispersalType
-from tree_propagation.utils import build_species_trait_table, windrose_to_dataframe
 from tree_propagation.visualization_common import compute_plot_extent
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 
@@ -261,6 +261,16 @@ def render_seed_shadow_tab(configs: dict[str, TreeConfig], controls: SidebarCont
                     ),
                     width="stretch",
                     key=f"dist_hist_{slot_idx}",
+                )
+                st.plotly_chart(
+                    visualization_plotly.plot_directional_transects(
+                        result=result,
+                        wind_rose=env_state.wind_rose,
+                        max_dist=shared_max_dist,
+                        cols=1,
+                    ),
+                    width="stretch",
+                    key=f"transects_{slot_idx}",
                 )
 
             with st.expander("Species Traits"):

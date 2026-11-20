@@ -44,7 +44,7 @@ class TreeAgent:
 
         self.seeds = 0
 
-        self.state = AgentStatus.ALIVE
+        self.status = AgentStatus.ALIVE
 
         self._validate_init_params()
 
@@ -69,7 +69,7 @@ class TreeAgent:
 
         expected_k = self.species_config.height_class_at_age(self.age)
         if self.height_class != expected_k:
-            raise ValueError("Height class of agent does not match the expected height class by it's age.")
+            raise ValueError("Height class of agent does not match the expected height class by its age.")
 
     def __repr__(self):
         return (f"TreeAgent(species={self.species_config.species_name}, "
@@ -167,7 +167,7 @@ class TreeAgent:
 
     @property
     def is_mature(self):
-        """Whether the agent is at or over it's species maturity age."""
+        """Whether the agent is at or over its species maturity age."""
         return self.age >= self.species_config.maturity_age
 
     @property

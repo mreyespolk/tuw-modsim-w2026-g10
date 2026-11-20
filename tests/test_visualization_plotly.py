@@ -13,10 +13,10 @@ import tree_propagation.visualization_plotly as viz
 from tree_propagation.dispersal import compute_mean_dispersal_distance
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.metrics import evaluate_seed_shadow
-from tree_propagation.simulation import simulate_seed_shadow
+from tree_propagation.simulation import SeedDispersalSimulation, SeedDispersalSimulationParams
+from tree_propagation.tables import build_species_trait_table
 from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
 from tree_propagation.types import DispersalType
-from tree_propagation.utils import build_species_trait_table
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE
 
 
@@ -43,15 +43,26 @@ def test_facet_marker_symbols_cycle_independently_per_facet():
 def test_plot_wind_rose():
     fig = viz.plot_wind_rose(DEFAULT_WIND_ROSE)
     assert isinstance(fig, go.Figure)
-    assert len(fig.data) == 1
+    assert len(fig.data) == 1 # type: ignore
 
 
 @pytest.mark.parametrize("num_instances", [0, 50])
 def test_plot_seed_shadow_handles_empty_and_non_empty(ahorn_tree_config: TreeConfig, rng, num_instances: int):
-    result = simulate_seed_shadow(ahorn_tree_config, EnvironmentState(), num_instances=num_instances, rng=rng)
+    env_state = EnvironmentState()
+    sim_params = SeedDispersalSimulationParams(
+        config=ahorn_tree_config,
+        environment_state=env_state,
+        num_instances=num_instances,
+    )
+    simulation = SeedDispersalSimulation(
+        params=sim_params,
+        rng=rng
+    )
+    result = simulation.run()
+
     fig = viz.plot_simulated_seed_shadow_and_distance_histogram(result, evaluate_seed_shadow(result))
     assert isinstance(fig, go.Figure)
-    trace_names = {t.name for t in fig.data}
+    trace_names = {t.name for t in fig.data} # type: ignore
     assert ("Seeds" in trace_names) == (not result.is_empty)
 
 
@@ -67,7 +78,7 @@ def test_plot_seed_shadow_handles_empty_and_non_empty(ahorn_tree_config: TreeCon
 def test_trait_table_plots_return_figures(traits_df, plot_fn):
     fig = plot_fn(traits_df)
     assert isinstance(fig, go.Figure)
-    assert len(fig.data) > 0
+    assert len(fig.data) > 0 # type: ignore
 
 
 def test_species_3d_scatter_accepts_any_trait_axes(traits_df):
@@ -80,11 +91,11 @@ def test_species_3d_scatter_accepts_any_trait_axes(traits_df):
 # region Faceted lifespan charts
 def test_growth_over_time_one_trace_per_species_in_correct_facet(tree_species_config, traits_df):
     fig = viz.plot_growth_over_time(traits_df)
-    assert len(fig.data) == len(tree_species_config)
+    assert len(fig.data) == len(tree_species_config) # type: ignore
     for trace in fig.data:
-        dtype = tree_species_config[trace.name].dispersal_type
+        dtype = tree_species_config[trace.name].dispersal_type # type: ignore
         expected_axis = "x" if viz._facet_column(dtype) == 1 else f"x{viz._facet_column(dtype)}"
-        assert trace.xaxis == expected_axis
+        assert trace.xaxis == expected_axis # type: ignore
 
 
 @pytest.mark.parametrize("wind_strength", [1, 7])
@@ -93,15 +104,15 @@ def test_dispersal_reach_matches_dispersal_model(tree_species_config, wind_stren
     fig = viz.plot_dispersal_reach_by_age(tree_species_config, wind_strength=wind_strength)
     env = EnvironmentState(wind_strength=wind_strength)
 
-    assert len(fig.data) == len(tree_species_config)
+    assert len(fig.data) == len(tree_species_config) # type: ignore
     for trace in fig.data:
-        cfg = tree_species_config[trace.name]
+        cfg = tree_species_config[trace.name] # type: ignore
         expected = [
-            compute_mean_dispersal_distance(cfg, height_class=int(k), environment=env) for k in trace.customdata
+            compute_mean_dispersal_distance(cfg, height_class=int(k), environment=env) for k in trace.customdata # type: ignore
         ]
-        np.testing.assert_allclose(trace.y, expected)
-        assert trace.line.color == viz.DISPERSAL_STYLES[cfg.dispersal_type].color
-        assert trace.line.dash == viz.DISPERSAL_STYLES[cfg.dispersal_type].dash
+        np.testing.assert_allclose(trace.y, expected) # type: ignore
+        assert trace.line.color == viz.DISPERSAL_STYLES[cfg.dispersal_type].color # type: ignore
+        assert trace.line.dash == viz.DISPERSAL_STYLES[cfg.dispersal_type].dash # type: ignore
 
 
 def test_dispersal_reach_default_wind_strength_is_one(tree_species_config):

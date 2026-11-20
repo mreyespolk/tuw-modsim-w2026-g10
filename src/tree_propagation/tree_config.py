@@ -84,7 +84,7 @@ class TreeConfig:
 
     @property
     def years_to_max_height(self) -> int:
-        """Time in years it takes for a species to reach it's maximum heightclass."""
+        """Time in years it takes for a species to reach its maximum heightclass."""
         return self.maximal_height_class * self.years_per_height_class
 
     @property

@@ -22,21 +22,6 @@ SPECIES_TRAIT_LABELS = {
 }
 
 
-@overload
-def height_class_at_age(age: int, years_per_height_class: int, maximal_height_class: int) -> int: ...
-@overload
-def height_class_at_age(age: np.ndarray, years_per_height_class: int, maximal_height_class: int) -> np.ndarray: ...
-def height_class_at_age(
-    age: int | np.ndarray, years_per_height_class: int, maximal_height_class: int
-) -> int | np.ndarray:
-    """Height class reached at a given age: k = min(K, ⌊age / T⌋).
-
-    Accepts a scalar age (returns int) or an integer array of ages (returns an array, element-wise).
-    """
-    k = np.minimum(np.asarray(age) // years_per_height_class, maximal_height_class)
-    return int(k) if np.ndim(k) == 0 else k
-
-
 @dataclass(frozen=True)
 class TreeConfig:
     species_name: str
@@ -108,13 +93,20 @@ class TreeConfig:
         """Peak seed production for the species."""
         return self.fecundity * self.maximal_height_class
 
-    @overload
-    def height_class_at_age(self, age: int) -> int: ...
-    @overload
-    def height_class_at_age(self, age: np.ndarray) -> np.ndarray: ...
-    def height_class_at_age(self, age: int | np.ndarray) -> int | np.ndarray:
-        """Height class this species reaches at `age` (scalar or array), capped at its maximal height class."""
-        return height_class_at_age(age, self.years_per_height_class, self.maximal_height_class)
+    def height_class_at_age(self, age: int) -> int:
+        """Height class reached at a given age: k = min(K, ⌊age / T⌋)."""
+        return min(age // self.years_per_height_class, self.maximal_height_class)
+
+    def height_classes_at_ages(self, ages: np.ndarray) -> np.ndarray:
+        return self.height_classes_from_params(
+            ages, self.years_per_height_class, self.maximal_height_class
+        )
+
+    @staticmethod
+    def height_classes_from_params(
+            ages: np.ndarray, years_per_height_class: int, maximal_height_class: int
+    ) -> np.ndarray:
+        return np.minimum(ages // years_per_height_class, maximal_height_class)
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, str]) -> "TreeConfig":

@@ -262,6 +262,16 @@ def render_seed_shadow_tab(configs: dict[str, TreeConfig], controls: SidebarCont
                     width="stretch",
                     key=f"dist_hist_{slot_idx}",
                 )
+                st.plotly_chart(
+                    visualization_plotly.plot_directional_transects(
+                        result=result,
+                        wind_rose=env_state.wind_rose,
+                        max_dist=shared_max_dist,
+                        cols=1,
+                    ),
+                    width="stretch",
+                    key=f"transects_{slot_idx}",
+                )
 
             with st.expander("Species Traits"):
                 st.dataframe(

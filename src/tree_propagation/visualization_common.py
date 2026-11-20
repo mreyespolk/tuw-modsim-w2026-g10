@@ -92,16 +92,19 @@ def compute_directional_transects(
     result: SeedShadowResult,
     wind_rose: WindRose = DEFAULT_WIND_ROSE,
     half_bins: int = 30,
+    max_dist: float | None = None,
 ) -> list[TransectSeries]:
     """Splits seeds into 4 bidirectional compass transects and computes signed-distance densities."""
     r_bar = result.theoretical_mean_radius
-    if result.is_empty:
-        max_dist = max(r_bar * 5.0, 1.0)
+    if max_dist is not None:
+        upper_dist = max(max_dist, 1e-6)
+    elif result.is_empty:
+        upper_dist = max(r_bar * 5.0, 1.0)
     else:
-        max_dist = max(float(np.percentile(result.distances, 99.5)), r_bar * 2.0, 1.0)
+        upper_dist = max(float(np.percentile(result.distances, 99.5)), r_bar * 2.0, 1.0)
 
     # Symmetric edges around 0.0 so positive and negative directions never share a center bin
-    bin_edges = np.linspace(-max_dist, max_dist, 2 * half_bins + 1)
+    bin_edges = np.linspace(-upper_dist, upper_dist, 2 * half_bins + 1)
     bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
     bin_width = float(bin_edges[1] - bin_edges[0])
 
@@ -111,8 +114,8 @@ def compute_directional_transects(
     else:
         sectors = np.array([], dtype=int)
 
-    x_pos = np.linspace(0.0, max_dist, 150)
-    x_neg = np.linspace(-max_dist, 0.0, 150)
+    x_pos = np.linspace(0.0, upper_dist, 150)
+    x_neg = np.linspace(-upper_dist, 0.0, 150)
     total_seeds = result.total_seeds
 
     # Non-wind dispersal is isotropic: every travel sector is equally likely.

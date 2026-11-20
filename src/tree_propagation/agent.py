@@ -1,4 +1,5 @@
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import numpy as np
 
@@ -144,14 +145,14 @@ class TreeAgent:
                     x=x_val,
                     y=y_val,
                 )
-        if not has_age and has_height_class:
+        if has_height_class and not has_age:
             return cls.from_height_class(
                 species_config=species_config,
                 height_class=int(input_dict[height_class_col]),
                 x=x_val,
                 y=y_val,
             )
-        elif not has_height_class:
+        elif has_height_class:
             return cls.from_age(
                 species_config=species_config,
                 age=int(input_dict[age_col]),

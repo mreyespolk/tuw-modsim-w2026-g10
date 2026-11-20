@@ -21,7 +21,7 @@ def tree_species_config() -> dict[str, TreeConfig]:
 
 @pytest.fixture
 def ahorn_tree_config(tree_species_config: dict[str, TreeConfig]) -> TreeConfig:
-    """Wind-dispersed species (A=20 yr, K=5)."""
+    """Wind-dispersed species (A=20 yr, T=12 yr, K=8)."""
     return tree_species_config["Ahorn"]
 
 

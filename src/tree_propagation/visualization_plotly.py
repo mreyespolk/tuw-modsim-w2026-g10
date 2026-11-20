@@ -14,11 +14,12 @@ from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig, heigh
 from tree_propagation.types import DispersalType
 from tree_propagation.visualization_common import (
     compass_label_positions,
+    compute_directional_transects,
     compute_exponential_pdf_curve,
     compute_plot_extent,
     compute_sector_boundary_endpoints,
 )
-from tree_propagation.wind_config import WindRose
+from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 
 
 @dataclass(frozen=True)
@@ -295,28 +296,37 @@ def plot_simulated_seed_shadow_and_distance_histogram(
                 col=1,
             )
 
-    # Theoretical mean dispersal radius circle + legend entry
-    fig.add_shape(
-        type="circle",
-        x0=-r_bar,
-        y0=-r_bar,
-        x1=r_bar,
-        y1=r_bar,
-        line={"color": "red", "width": 2},
-        row=1,
-        col=1,
+    # Theoretical mean dispersal radius and quantiles circle + legend entry
+    rings = (
+        (r_bar * float(np.log(2.0)), f"50% Median ({r_bar * np.log(2.0):.1f} m)", "#D32F2F", "dot", 1.5),
+        (r_bar, f"Theoretical Mean ({r_bar:.1f} m)", "red", "solid", 2.0),
+        (r_bar * float(np.log(20.0)), f"95% Quantile ({r_bar * np.log(20.0):.1f} m)", "#B71C1C", "dash", 1.5),
     )
-    fig.add_trace(
-        go.Scatter(
-            x=[None],
-            y=[None],
-            mode="lines",
-            name=f"Theoretical Mean ({r_bar:.2f} m)",
-            line={"color": "red", "width": 2},
-        ),
-        row=1,
-        col=1,
-    )
+
+    for radius, label, color, dash, width in rings:
+        if radius <= 0.0:
+            continue
+        fig.add_shape(
+            type="circle",
+            x0=-radius,
+            y0=-radius,
+            x1=radius,
+            y1=radius,
+            line={"color": color, "width": width, "dash": dash},
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="lines",
+                name=label,
+                line={"color": color, "width": width, "dash": dash},
+            ),
+            row=1,
+            col=1,
+        )
 
     for label, (lx, ly) in compass_label_positions(margin=0.02):
         fig.add_annotation(
@@ -427,7 +437,7 @@ def plot_dispersal_reach_by_age(
     for cfg, symbol in zip(configs, symbols, strict=True):
         lifespan = cfg.mean_life_span
         ages = np.arange(0, lifespan + 1)
-        height_classes = cfg.height_class_at_age(ages)
+        height_classes = cfg.height_classes_at_ages(ages)
         r_bars = [
             compute_mean_dispersal_distance(config=cfg, height_class=int(k), environment=environment)
             for k in height_classes
@@ -688,7 +698,9 @@ def plot_growth_over_time(traits_df: pd.DataFrame) -> go.Figure:
     for row, dtype, symbol in zip(ordered.itertuples(), dispersal_types, symbols, strict=True):
         lifespan = int(row.mean_life_span)
         ages = np.arange(0, lifespan + 1)
-        height_classes = height_class_at_age(ages, int(row.years_per_height_class), int(row.maximal_height_class))
+        height_classes = TreeConfig.height_classes_from_params(
+            ages, int(row.years_per_height_class), int(row.maximal_height_class)
+        )
 
         fig.add_trace(
             _lifespan_step_trace(
@@ -714,4 +726,122 @@ def plot_growth_over_time(traits_df: pd.DataFrame) -> go.Figure:
     fig.update_yaxes(dtick=1, range=[0, max_height_class + 0.5])
     fig.update_yaxes(title_text="Height Class (k)", row=1, col=1)
     _apply_facet_layout(fig, "Tree Height Class Growth Over Mean Lifespan")
+    return fig
+
+def plot_directional_transects(
+    result: SeedShadowResult,
+    wind_rose: WindRose = DEFAULT_WIND_ROSE,
+    half_bins: int = 30,
+) -> go.Figure:
+    """Creates a 2×2 faceted signed-distance histogram across the four compass transects."""
+    transects = compute_directional_transects(result=result, wind_rose=wind_rose, half_bins=half_bins)
+
+    fig = make_subplots(
+        rows=2,
+        cols=2,
+        shared_xaxes=True,
+        shared_yaxes=True,
+        subplot_titles=[f"{t.title} ({t.seed_count:,})" for t in transects],
+        horizontal_spacing=0.06,
+        vertical_spacing=0.14,
+    )
+
+    # Pixel offsets (x0, x1, y0, y1, fillcolor) for a 3-lobe leafy crown
+    canopy_scale = 1.8  # Increase/decrease to resize the entire crown
+    canopy_lobes = (
+        (-15 * canopy_scale, 2 * canopy_scale, -8 * canopy_scale, 8 * canopy_scale, "#2E7D32"),
+        (-2 * canopy_scale, 15 * canopy_scale, -8 * canopy_scale, 8 * canopy_scale, "#388E3C"),
+        (-11 * canopy_scale, 11 * canopy_scale, -3 * canopy_scale, 14 * canopy_scale, "#4CAF50"),
+    )
+
+    for idx, t in enumerate(transects):
+        row_idx, col_idx = divmod(idx, 2)
+        row_idx += 1
+        col_idx += 1
+        show_legend = idx == 0
+
+        fig.add_trace(
+            go.Bar(
+                x=t.bin_centers,
+                y=t.empirical_density,
+                width=t.bin_width * 0.92,
+                name="Simulated",
+                marker_color="steelblue",
+                opacity=0.65,
+                showlegend=show_legend,
+                hovertemplate=(
+                    f"<b>{t.title}</b><br>"
+                    "Signed distance: %{x:.1f} m<br>"
+                    "Global density: %{y:.5f}<extra></extra>"
+                ),
+            ),
+            row=row_idx,
+            col=col_idx,
+        )
+
+        for xs_branch, pdf_branch, is_first_branch in (
+            (t.x_neg, t.pdf_neg, True),
+            (t.x_pos, t.pdf_pos, False),
+        ):
+            fig.add_trace(
+                go.Scatter(
+                    x=xs_branch,
+                    y=pdf_branch,
+                    mode="lines",
+                    name=f"Theoretical Exp (r̄ = {result.theoretical_mean_radius:.2f} m)",
+                    line={"color": "red", "width": 2, "dash": "dash"},
+                    showlegend=show_legend and is_first_branch,
+                    hoverinfo="skip",
+                ),
+                row=row_idx,
+                col=col_idx,
+            )
+
+        # Tree trunk stopping just below the canopy
+        fig.add_vline(
+            x=0,
+            y0=0.05,
+            y1=1.0,
+            line_width=10,
+            line_color="#6D4C41",
+            row=row_idx,  # type: ignore[arg-type]
+            col=col_idx,  # type: ignore[arg-type]
+        )
+
+        # Leafy crown pinned to the top of the trunk in domain-y / pixel space
+        subplot_num = idx + 1
+        x_ref = "x" if subplot_num == 1 else f"x{subplot_num}"
+        y_dom_ref = "y domain" if subplot_num == 1 else f"y{subplot_num} domain"
+
+        for x0, x1, y0, y1, fill_color in canopy_lobes:
+            fig.add_shape(
+                type="circle",
+                xref=x_ref,
+                yref=y_dom_ref,
+                xsizemode="pixel",
+                ysizemode="pixel",
+                xanchor=0,
+                yanchor=0.89,
+                x0=x0,
+                x1=x1,
+                y0=y0,
+                y1=y1,
+                fillcolor=fill_color,
+                line={"color": "#1B5E20", "width": 1.2},
+            )
+
+    fig.update_xaxes(title_text="Signed Distance [m]", row=2)
+    fig.update_yaxes(title_text="Global Probability Density", col=1)
+    fig.update_layout(
+        title={
+            "text": "Directional Dispersal Transects (Parent Tree at 0 m)",
+            "x": 0.5,
+            "xanchor": "center",
+        },
+        height=540,
+        template="plotly_white",
+        bargap=0.05,
+        legend={"orientation": "h", "yanchor": "bottom", "y": -0.18, "xanchor": "center", "x": 0.5},
+        margin={"t": 75, "b": 85, "l": 65, "r": 25},
+    )
     return fig

@@ -1,3 +1,6 @@
+from collections.abc import Mapping
+from typing import Any
+
 import numpy as np
 
 import tree_propagation.type_validation as type_validation
@@ -88,6 +91,20 @@ class TreeAgent:
         )
 
     @classmethod
+    def from_age(
+        cls, species_config: TreeConfig, age: int, x: float = 0.0, y: float = 0.0
+    ) -> "TreeAgent":
+        """Instantiate an new agent when the age is known, but not the height class."""
+        height_class = species_config.height_class_at_age(age)
+        return cls(
+            species_config=species_config,
+            age=age,
+            height_class=height_class,
+            x=x,
+            y=y,
+        )
+
+    @classmethod
     def newborn(cls, species_config: TreeConfig, x: float = 0.0, y: float = 0.0) -> "TreeAgent":
         """Instantiate a new agent as a newborn.
 
@@ -101,6 +118,53 @@ class TreeAgent:
             x=x,
             y=y,
         )
+
+    @classmethod
+    def from_dict(
+        cls, input_dict: Mapping[str, Any], species_config: TreeConfig, col_override: dict | None = None
+    ) -> "TreeAgent":
+        if col_override is None:
+            col_override = {}
+
+        age_col = col_override.get("age", "age")
+        height_class_col = col_override.get("height_class", "height_class")
+        x_col = col_override.get("x", "x")
+        y_col = col_override.get("y", "y")
+
+        has_age = input_dict.get(age_col) is not None
+        has_height_class = input_dict.get(height_class_col) is not None
+
+        x_val = float(input_dict.get(x_col, 0.0))
+        y_val = float(input_dict.get(y_col, 0.0))
+
+        if has_age and has_height_class:
+                return cls(
+                    species_config=species_config,
+                    age=int(input_dict[age_col]),
+                    height_class=int(input_dict[height_class_col]),
+                    x=x_val,
+                    y=y_val,
+                )
+        if has_height_class and not has_age:
+            return cls.from_height_class(
+                species_config=species_config,
+                height_class=int(input_dict[height_class_col]),
+                x=x_val,
+                y=y_val,
+            )
+        elif has_height_class:
+            return cls.from_age(
+                species_config=species_config,
+                age=int(input_dict[age_col]),
+                x=x_val,
+                y=y_val,
+            )
+        else:
+            return cls.newborn(
+                species_config=species_config,
+                x=x_val,
+                y=y_val,
+            )
 
     @property
     def is_mature(self):

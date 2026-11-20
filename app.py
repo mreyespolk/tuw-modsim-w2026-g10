@@ -16,13 +16,13 @@ from tree_propagation.simulation import (
     SeedDispersalSimulation,
     SeedDispersalSimulationParams,
 )
+from tree_propagation.tables import build_species_trait_table, windrose_to_dataframe
 from tree_propagation.tree_config import (
     SPECIES_TRAIT_LABELS,
     TreeConfig,
     load_tree_configs_from_csv,
 )
 from tree_propagation.types import DispersalType
-from tree_propagation.utils import build_species_trait_table, windrose_to_dataframe
 from tree_propagation.visualization_common import compute_plot_extent
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 

@@ -14,9 +14,9 @@ from tree_propagation.dispersal import compute_mean_dispersal_distance
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.metrics import evaluate_seed_shadow
 from tree_propagation.simulation import SeedDispersalSimulation, SeedDispersalSimulationParams
+from tree_propagation.tables import build_species_trait_table
 from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
 from tree_propagation.types import DispersalType
-from tree_propagation.utils import build_species_trait_table
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE
 
 

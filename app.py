@@ -8,7 +8,7 @@ import streamlit as st
 
 import tree_propagation.visualization_plotly as visualization_plotly
 from tree_propagation.consts import DEFAULT_HEIGHT_CLASS, DEFAULT_RANDOM_SEED
-from tree_propagation.environment import EnvironmentState
+from tree_propagation.environment import DEFAULT_WIND_STRENGTH, EnvironmentState
 from tree_propagation.metrics import evaluate_seed_shadow
 from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
 from tree_propagation.simulation import simulate_seed_shadow
@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 APP_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = APP_DIR / "data" / "tree_species_config.csv"
 INSTANCE_OPTIONS = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 5_000, 10_000, 100_000]
+WIND_STRENGTH_OPTIONS = [1, 5, 10, 20, 50]
 
 
 @dataclass(frozen=True)
@@ -68,7 +69,11 @@ def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
 
         default_height = min(DEFAULT_HEIGHT_CLASS, selected_config.maximal_height_class)
         height_class = st.slider("Height Class (k)", 1, selected_config.maximal_height_class, default_height)
-        wind_strength = st.slider("Wind Strength", 1, 10, 1, step=1)
+        wind_strength = st.select_slider(
+            "Wind Strength",
+            options=WIND_STRENGTH_OPTIONS,
+            value=DEFAULT_WIND_STRENGTH,
+        )
         num_instances = st.select_slider(
             "Simulation Instances (N)",
             options=INSTANCE_OPTIONS,

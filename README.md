@@ -20,7 +20,7 @@ as it would require obtaining a fine-grained exclusion map, and height map of ma
 
 ## Project planning
 
-Project plan including responsibilities, status and dependencies:
+Project plan including responsibilities, status and dependencies:<br>
 <https://docs.google.com/spreadsheets/d/1kVtIJiJGVDGRkX_ikg5S-Yd9biN36jSuWd2YMtzkjLM/edit?gid=0#gid=0>
 
 ## Current status
@@ -43,11 +43,20 @@ Requires **Python ≥ 3.11**.
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[notebook,dev]"   # [notebook]: matplotlib/Jupyter, [dev]: pytest/ruff
+pip install -e ".[dev]"   # [dev]: pytest, ruff, jupyter
+```
 
-streamlit run app.py   # interactive app
-pytest                 # test suite
-ruff check .           # lint
+## Interactive Dashboard
+The interactive dashboard was creating using Streamlit. 
+
+### Public dashboard
+The public dashboard is hosted on Streamlit Community Cloud, and references the state of the Streamlit app in the `dev`.<br>
+https://tuw-modsim-w2026-g10-f7w2jy8hjot5v3kxiwrp7o.streamlit.app/
+
+### Running interactive dashboard locally
+In order to run the dashboard locally to test modifications before modifying the public dashboard, the app can be run with the following command:
+```sh
+streamlit run app.py
 ```
 
 ## Spatial model conventions
@@ -72,6 +81,18 @@ docs/                   Assignment PDF and LaTeX report
 src/tree_propagation/   Model package (agents, dispersal, simulation, metrics, plots)
 tests/                  pytest suite
 task*.ipynb             Notebooks for the assignment tasks
+```
+
+## Linting
+
+```sh
+ruff check .
+```
+
+# Testing
+
+```sh
+pytest
 ```
 
 ## Development notes

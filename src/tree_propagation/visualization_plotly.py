@@ -10,7 +10,7 @@ from plotly.subplots import make_subplots
 from tree_propagation.dispersal import compute_mean_dispersal_distance
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
-from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig, height_class_at_age
+from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
 from tree_propagation.types import DispersalType
 from tree_propagation.visualization_common import (
     compass_label_positions,
@@ -437,7 +437,7 @@ def plot_dispersal_reach_by_age(
     for cfg, symbol in zip(configs, symbols, strict=True):
         lifespan = cfg.mean_life_span
         ages = np.arange(0, lifespan + 1)
-        height_classes = cfg.height_class_at_age(ages)
+        height_classes = cfg.height_classes_at_ages(ages)
         r_bars = [
             compute_mean_dispersal_distance(config=cfg, height_class=int(k), environment=environment)
             for k in height_classes
@@ -698,7 +698,9 @@ def plot_growth_over_time(traits_df: pd.DataFrame) -> go.Figure:
     for row, dtype, symbol in zip(ordered.itertuples(), dispersal_types, symbols, strict=True):
         lifespan = int(row.mean_life_span)
         ages = np.arange(0, lifespan + 1)
-        height_classes = height_class_at_age(ages, int(row.years_per_height_class), int(row.maximal_height_class))
+        height_classes = TreeConfig.height_classes_from_params(
+            ages, int(row.years_per_height_class), int(row.maximal_height_class)
+        )
 
         fig.add_trace(
             _lifespan_step_trace(

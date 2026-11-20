@@ -2,28 +2,23 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from tree_propagation.dispersal import DispersalType
 from tree_propagation.models import SeedShadowResult
-from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindDirection, WindRose
-
-# Paired opposite travel sectors: (positive_dir, negative_dir, pos_sector_idx, neg_sector_idx)
-TRANSECT_SPECS: tuple[tuple[WindDirection, WindDirection, int, int], ...] = (
-    (WindDirection.N, WindDirection.S, 0, 4),
-    (WindDirection.E, WindDirection.W, 2, 6),
-    (WindDirection.NE, WindDirection.SW, 1, 5),
-    (WindDirection.SE, WindDirection.NW, 3, 7),
+from tree_propagation.types import DispersalType
+from tree_propagation.wind_config import (
+    DEFAULT_WIND_ROSE,
+    NUM_SECTORS,
+    WindDirection,
+    WindRose,
+    bearing_to_sector_index,
 )
 
-_OPPOSITE_DIRECTION: dict[WindDirection, WindDirection] = {
-    WindDirection.N: WindDirection.S,
-    WindDirection.NE: WindDirection.SW,
-    WindDirection.E: WindDirection.W,
-    WindDirection.SE: WindDirection.NW,
-    WindDirection.S: WindDirection.N,
-    WindDirection.SW: WindDirection.NE,
-    WindDirection.W: WindDirection.E,
-    WindDirection.NW: WindDirection.SE,
-}
+# Bidirectional compass transects as (positive_direction, negative_direction) travel sectors.
+TRANSECT_SPECS: tuple[tuple[WindDirection, WindDirection], ...] = (
+    (WindDirection.N, WindDirection.S),
+    (WindDirection.E, WindDirection.W),
+    (WindDirection.NE, WindDirection.SW),
+    (WindDirection.SE, WindDirection.NW),
+)
 
 
 @dataclass(frozen=True)
@@ -63,7 +58,7 @@ def compute_plot_extent(result: SeedShadowResult, padding: float = 1.05) -> floa
 
 
 def compute_sector_boundary_endpoints(
-    max_extent: float, scale: float = 1.1, num_sectors: int = 8
+    max_extent: float, scale: float = 1.1, num_sectors: int = NUM_SECTORS
 ) -> list[tuple[float, float]]:
     """Computes (x1, y1) endpoints from (0, 0) for wind-sector boundary rays."""
     step_deg = 360.0 / num_sectors
@@ -112,8 +107,7 @@ def compute_directional_transects(
 
     if not result.is_empty:
         # Travel bearing clockwise from North (+x = East, +y = North)
-        bearings_deg = np.rad2deg(np.arctan2(result.xs, result.ys)) % 360.0
-        sectors = np.floor(((bearings_deg + 22.5) % 360.0) / 45.0).astype(int) % 8
+        sectors = bearing_to_sector_index(np.rad2deg(np.arctan2(result.xs, result.ys)))
     else:
         sectors = np.array([], dtype=int)
 
@@ -121,15 +115,13 @@ def compute_directional_transects(
     x_neg = np.linspace(-max_dist, 0.0, 150)
     total_seeds = result.total_seeds
 
+    # Non-wind dispersal is isotropic: every travel sector is equally likely.
+    travel_rose = wind_rose if result.dispersal_type == DispersalType.WIND else WindRose.uniform()
+
     transects: list[TransectSeries] = []
-    for pos_dir, neg_dir, pos_idx, neg_idx in TRANSECT_SPECS:
-        if result.dispersal_type == DispersalType.WIND:
-            # WindRose stores blowing-from probabilities; seeds travel to the opposite sector
-            p_pos = wind_rose.probabilities[_OPPOSITE_DIRECTION[pos_dir]]
-            p_neg = wind_rose.probabilities[_OPPOSITE_DIRECTION[neg_dir]]
-        else:
-            p_pos = 1.0 / 8.0
-            p_neg = 1.0 / 8.0
+    for pos_dir, neg_dir in TRANSECT_SPECS:
+        p_pos = travel_rose.downwind_probability(pos_dir)
+        p_neg = travel_rose.downwind_probability(neg_dir)
 
         if r_bar > 0.0:
             pdf_pos = (p_pos / r_bar) * np.exp(-x_pos / r_bar)
@@ -139,8 +131,8 @@ def compute_directional_transects(
             pdf_neg = np.zeros_like(x_neg)
 
         if total_seeds > 0:
-            pos_dists = result.distances[sectors == pos_idx]
-            neg_dists = -result.distances[sectors == neg_idx]
+            pos_dists = result.distances[sectors == pos_dir.sector_index]
+            neg_dists = -result.distances[sectors == neg_dir.sector_index]
             signed_dists = np.concatenate([neg_dists, pos_dists])
             counts, _ = np.histogram(signed_dists, bins=bin_edges)
             empirical_density = counts / (total_seeds * bin_width)

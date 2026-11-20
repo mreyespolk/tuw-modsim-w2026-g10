@@ -1,5 +1,5 @@
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +11,11 @@ from tree_propagation.consts import DEFAULT_HEIGHT_CLASS, DEFAULT_RANDOM_SEED
 from tree_propagation.environment import DEFAULT_WIND_STRENGTH, EnvironmentState
 from tree_propagation.metrics import evaluate_seed_shadow
 from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
-from tree_propagation.simulation import simulate_seed_shadow
+from tree_propagation.simulation import (
+    DEFAULT_SEED_DISPERSAL_SIMULATION_INSTANCES,
+    SeedDispersalSimulation,
+    SeedDispersalSimulationParams,
+)
 from tree_propagation.tree_config import (
     SPECIES_TRAIT_LABELS,
     TreeConfig,
@@ -27,15 +31,6 @@ APP_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = APP_DIR / "data" / "tree_species_config.csv"
 INSTANCE_OPTIONS = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 5_000, 10_000, 100_000]
 WIND_STRENGTH_OPTIONS = [1, 5, 10, 20, 50]
-
-
-@dataclass(frozen=True)
-class SimulationParams:
-    seed: int
-    species: str
-    height_class: int
-    wind_strength: int
-    num_instances: int
 
 
 @st.cache_data
@@ -54,7 +49,7 @@ def _randomize_seed() -> None:
     st.session_state.seed = int(np.random.default_rng().integers(0, 1_000_000))
 
 
-def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
+def render_sidebar(configs: dict[str, TreeConfig]) -> SeedDispersalSimulationParams:
     st.session_state.setdefault("seed", DEFAULT_RANDOM_SEED)
 
     with st.sidebar:
@@ -67,8 +62,20 @@ def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
         species = st.selectbox("Species", list(configs.keys()))
         selected_config = configs[species]
 
-        default_height = min(DEFAULT_HEIGHT_CLASS, selected_config.maximal_height_class)
-        height_class = st.slider("Height Class (k)", 1, selected_config.maximal_height_class, default_height)
+        max_k = selected_config.maximal_height_class
+        if max_k == 1:
+            st.caption("Height Class (k): **1** (max K = 1)")
+            height_class = 1
+        else:
+            current_k = int(st.session_state.get("sidebar_height_class", DEFAULT_HEIGHT_CLASS))
+            st.session_state["sidebar_height_class"] = max(1, min(current_k, max_k))
+            height_class = st.slider(
+                "Height Class (k)",
+                min_value=1,
+                max_value=max_k,
+                key="sidebar_height_class",
+            )
+
         wind_strength = st.select_slider(
             "Wind Strength",
             options=WIND_STRENGTH_OPTIONS,
@@ -77,7 +84,7 @@ def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
         num_instances = st.select_slider(
             "Simulation Instances (N)",
             options=INSTANCE_OPTIONS,
-            value=100,
+            value=DEFAULT_SEED_DISPERSAL_SIMULATION_INSTANCES,
         )
 
         st.dataframe(
@@ -86,12 +93,12 @@ def render_sidebar(configs: dict[str, TreeConfig]) -> SimulationParams:
             hide_index=True,
         )
 
-    return SimulationParams(
-        seed=int(st.session_state["seed"]),
-        species=species,
+    return SeedDispersalSimulationParams(
+        config=selected_config,
+        environment_state=EnvironmentState(wind_rose=DEFAULT_WIND_ROSE, wind_strength=wind_strength),
         height_class=height_class,
-        wind_strength=wind_strength,
         num_instances=num_instances,
+        seed=int(st.session_state["seed"]),
     )
 
 
@@ -119,42 +126,29 @@ def render_metrics_bar(metrics: SeedShadowMetrics) -> None:
     c4.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
 
 
-@st.cache_data(show_spinner="Simulating seed shadow…", max_entries=16)
-def run_seed_shadow(
-    config_path: str,
-    species: str,
-    height_class: int,
-    wind_strength: int,
-    num_instances: int,
-    seed: int,
-) -> tuple[SeedShadowResult, SeedShadowMetrics]:
-    """Runs and evaluates a seed-shadow simulation, cached on its (hashable, primitive) inputs.
-
-    Streamlit reruns the whole script on every widget interaction; caching avoids re-simulating
-    when only unrelated widgets (e.g. the 3D explorer axes) change. Results are deterministic
-    for a given seed, so cached and fresh runs are identical.
-    """
-    config = get_tree_configs(config_path)[species]
-    env_state = EnvironmentState(wind_rose=DEFAULT_WIND_ROSE, wind_strength=wind_strength)
-    result = simulate_seed_shadow(
-        config=config,
-        environment_state=env_state,
-        height_class=height_class,
-        num_instances=num_instances,
-        rng=np.random.default_rng(seed),
-    )
+@st.cache_data(
+    show_spinner="Simulating seed shadow…",
+    max_entries=16,
+    hash_funcs={
+        SeedDispersalSimulationParams: lambda p: (
+            p.config,
+            p.environment_state.wind_strength,
+            tuple(p.environment_state.wind_rose.probabilities.items()),
+            p.height_class,
+            p.num_instances,
+            p.seed,
+        )
+    },
+)
+def run_seed_shadow(params: SeedDispersalSimulationParams) -> tuple[SeedShadowResult, SeedShadowMetrics]:
+    """Runs and evaluates a seed-shadow simulation, cached on its immutable params."""
+    sim = SeedDispersalSimulation(params)
+    result = sim.run()
     return result, evaluate_seed_shadow(result)
 
 
-def render_seed_shadow_tab(params: SimulationParams) -> None:
-    result, metrics = run_seed_shadow(
-        config_path=str(DEFAULT_CONFIG_PATH),
-        species=params.species,
-        height_class=params.height_class,
-        wind_strength=params.wind_strength,
-        num_instances=params.num_instances,
-        seed=params.seed,
-    )
+def render_seed_shadow_tab(params: SeedDispersalSimulationParams) -> None:
+    result, metrics = run_seed_shadow(params)
 
     render_metrics_bar(metrics)
 
@@ -164,7 +158,10 @@ def render_seed_shadow_tab(params: SimulationParams) -> None:
         fig = visualization_plotly.plot_simulated_seed_shadow_and_distance_histogram(result=result, metrics=metrics)
         st.plotly_chart(fig, width="stretch")
 
-        fig_transects = visualization_plotly.plot_directional_transects(result=result, wind_rose=DEFAULT_WIND_ROSE)
+        fig_transects = visualization_plotly.plot_directional_transects(
+            result=result,
+            wind_rose=params.environment_state.wind_rose,
+        )
         st.plotly_chart(fig_transects, width="stretch")
 
 
@@ -179,42 +176,46 @@ def render_wind_tab(wind_rose: WindRose) -> None:
             "180° opposite (downwind) with uniform jitter within each 45° sector."
         )
 
-def render_species_overview_tab(configs: dict[str, TreeConfig], params: SimulationParams) -> None:
-    env_state = EnvironmentState(wind_rose=DEFAULT_WIND_ROSE, wind_strength=params.wind_strength)
+def render_species_overview_tab(
+    configs: dict[str, TreeConfig],
+    params: SeedDispersalSimulationParams,
+) -> None:
     traits_df = build_species_trait_table(
         configs,
         reference_height_class=params.height_class,
-        environment=env_state,
+        environment=params.environment_state,
     )
 
     st.plotly_chart(visualization_plotly.plot_pioneer_climax_tradeoff(traits_df), width="stretch")
-
-
     st.plotly_chart(visualization_plotly.plot_species_lifecycle_timelines(traits_df), width="stretch")
     st.plotly_chart(
-        visualization_plotly.plot_dispersal_reach_by_age(configs, wind_strength=params.wind_strength),
+        visualization_plotly.plot_dispersal_reach_by_age(
+            configs,
+            wind_strength=params.environment_state.wind_strength,
+        ),
         width="stretch",
     )
     st.plotly_chart(visualization_plotly.plot_growth_over_time(traits_df), width="stretch")
-
     st.plotly_chart(visualization_plotly.plot_species_trait_heatmap(traits_df), width="stretch")
 
     st.subheader("3D Trait Space Explorer")
     trait_keys = list(SPECIES_TRAIT_LABELS.keys())
     c_x, c_y, c_z = st.columns(3)
     with c_x:
-        x_key = st.selectbox("X-Axis Variable", trait_keys, index=0, format_func=SPECIES_TRAIT_LABELS.get) # type: ignore
+        x_key = st.selectbox("X-Axis Variable", trait_keys, index=0, format_func=SPECIES_TRAIT_LABELS.get)  # type: ignore
     with c_y:
-        y_key = st.selectbox("Y-Axis Variable", trait_keys, index=1, format_func=SPECIES_TRAIT_LABELS.get) # type: ignore
+        y_key = st.selectbox("Y-Axis Variable", trait_keys, index=1, format_func=SPECIES_TRAIT_LABELS.get)  # type: ignore
     with c_z:
-        z_key = st.selectbox("Z-Axis Variable", trait_keys, index=2, format_func=SPECIES_TRAIT_LABELS.get) # type: ignore
+        z_key = st.selectbox("Z-Axis Variable", trait_keys, index=2, format_func=SPECIES_TRAIT_LABELS.get)  # type: ignore
 
-    st.plotly_chart(visualization_plotly.plot_species_3d_scatter(traits_df,
-                                                                 x_key=x_key,
-                                                                 y_key=y_key,
-                                                                 z_key=z_key
-                    ), 
-                    width="stretch"
+    st.plotly_chart(
+        visualization_plotly.plot_species_3d_scatter(
+            traits_df,
+            x_key=x_key,
+            y_key=y_key,
+            z_key=z_key,
+        ),
+        width="stretch",
     )
 
     st.subheader("Species Parameter Table")
@@ -242,7 +243,7 @@ def main() -> None:
     with tab_sim:
         render_seed_shadow_tab(params)
     with tab_wind:
-        render_wind_tab(DEFAULT_WIND_ROSE)
+        render_wind_tab(params.environment_state.wind_rose)
     with tab_species:
         render_species_overview_tab(configs, params)
 

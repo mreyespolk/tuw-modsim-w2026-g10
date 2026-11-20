@@ -82,6 +82,50 @@ def test_rejects_non_finite_or_non_numeric_coordinates(ahorn_tree_config: TreeCo
 def test_rejects_non_tree_config():
     with pytest.raises(TypeError):
         TreeAgent(species_config="Ahorn")  # type: ignore[arg-type]
+
+
+# Ahorn: T = 12 yr, K = 8.
+@pytest.mark.parametrize(
+    ("row", "expected_age", "expected_height_class"),
+    [
+        ({"age": 30, "height_class": 2}, 30, 2),  # both given: used as-is
+        ({"height_class": 3}, 36, 3),  # height class only: age = k * T
+        ({"age": 50}, 50, 4),  # age only: k = min(K, age // T)
+        ({"age": 500}, 500, 8),  # age only: capped at K
+        ({}, 0, 0),  # neither: newborn
+        ({"age": None, "height_class": None}, 0, 0),  # explicit None counts as missing
+    ],
+)
+def test_from_dict_age_height_class_combinations(
+    ahorn_tree_config: TreeConfig, row: dict, expected_age: int, expected_height_class: int
+):
+    agent = TreeAgent.from_dict({**row, "x": 1.5, "y": -2.5}, species_config=ahorn_tree_config)
+    assert (agent.age, agent.height_class) == (expected_age, expected_height_class)
+    assert (agent.x, agent.y) == (1.5, -2.5)
+
+
+def test_from_dict_defaults_missing_coordinates_to_origin(ahorn_tree_config: TreeConfig):
+    agent = TreeAgent.from_dict({"height_class": 1}, species_config=ahorn_tree_config)
+    assert (agent.x, agent.y) == (0.0, 0.0)
+
+
+def test_from_dict_parses_string_values(ahorn_tree_config: TreeConfig):
+    """Rows from csv.DictReader hold strings."""
+    row = {"age": "24", "height_class": "2", "x": "6585.4", "y": "6956.4"}
+    agent = TreeAgent.from_dict(row, species_config=ahorn_tree_config)
+    assert (agent.age, agent.height_class, agent.x, agent.y) == (24, 2, 6585.4, 6956.4)
+
+
+def test_from_dict_col_override_maps_vienna_columns(ahorn_tree_config: TreeConfig):
+    """Matches the trees_vienna.csv schema: x_m, y_m, height_class (no age)."""
+    row = {"district": "13", "x_m": "6585.4", "y_m": "6956.4", "species": "Ahorn", "height_class": "2"}
+    agent = TreeAgent.from_dict(row, species_config=ahorn_tree_config, col_override={"x": "x_m", "y": "y_m"})
+    assert (agent.age, agent.height_class, agent.x, agent.y) == (24, 2, 6585.4, 6956.4)
+
+
+def test_from_dict_rejects_inconsistent_age_and_height_class(ahorn_tree_config: TreeConfig):
+    with pytest.raises(ValueError):
+        TreeAgent.from_dict({"age": 30, "height_class": 5}, species_config=ahorn_tree_config)
 # endregion
 
 

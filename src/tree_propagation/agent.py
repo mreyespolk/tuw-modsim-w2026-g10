@@ -138,33 +138,32 @@ class TreeAgent:
         y_val = float(input_dict.get(y_col, 0.0))
 
         if has_age and has_height_class:
-                return cls(
-                    species_config=species_config,
-                    age=int(input_dict[age_col]),
-                    height_class=int(input_dict[height_class_col]),
-                    x=x_val,
-                    y=y_val,
-                )
-        if has_height_class and not has_age:
+            return cls(
+                species_config=species_config,
+                age=int(input_dict[age_col]),
+                height_class=int(input_dict[height_class_col]),
+                x=x_val,
+                y=y_val,
+            )
+        if has_height_class:
             return cls.from_height_class(
                 species_config=species_config,
                 height_class=int(input_dict[height_class_col]),
                 x=x_val,
                 y=y_val,
             )
-        elif has_height_class:
+        if has_age:
             return cls.from_age(
                 species_config=species_config,
                 age=int(input_dict[age_col]),
                 x=x_val,
                 y=y_val,
             )
-        else:
-            return cls.newborn(
-                species_config=species_config,
-                x=x_val,
-                y=y_val,
-            )
+        return cls.newborn(
+            species_config=species_config,
+            x=x_val,
+            y=y_val,
+        )
 
     @property
     def is_mature(self):

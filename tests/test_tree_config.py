@@ -3,20 +3,28 @@
 Run with: python -m pytest -v tests/test_tree_config.py
 """
 
+import dataclasses
+
 import numpy as np
 import pytest
 
 from tree_propagation.tree_config import TreeConfig
 
 
+@pytest.fixture
+def t12_k5_config(ahorn_tree_config: TreeConfig) -> TreeConfig:
+    """Ahorn with fixed T = 12 yr, K = 5 so expected height classes don't track CSV edits."""
+    return dataclasses.replace(ahorn_tree_config, years_per_height_class=12, maximal_height_class=5)
+
+
 # region Height class at age
 @pytest.mark.parametrize(
     ("age", "expected"),
-    # Ahorn: T = 12 yr, K = 5
+    # t12_k5_config: T = 12 yr, K = 5
     [(0, 0), (11, 0), (12, 1), (23, 1), (24, 2), (59, 4), (60, 5), (500, 5)],
 )
-def test_height_class_at_age_scalar(ahorn_tree_config: TreeConfig, age: int, expected: int):
-    k = ahorn_tree_config.height_class_at_age(age)
+def test_height_class_at_age_scalar(t12_k5_config: TreeConfig, age: int, expected: int):
+    k = t12_k5_config.height_class_at_age(age)
     assert k == expected
     assert isinstance(k, int)
 

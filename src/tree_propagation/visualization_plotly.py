@@ -10,7 +10,7 @@ from plotly.subplots import make_subplots
 from tree_propagation.dispersal import compute_mean_dispersal_distance
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
-from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig, height_class_at_age
+from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
 from tree_propagation.types import DispersalType
 from tree_propagation.visualization_common import (
     compass_label_positions,

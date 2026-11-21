@@ -128,17 +128,17 @@ def render_metrics_bar(metrics: SeedShadowMetrics, compact: bool = False) -> Non
             delta_color="off",
             delta_arrow="off",
         )
-        r1_c2.metric("Theoretical Mean (r̄)", f"{metrics.theoretical_mean_radius:.2f} m")
-    
+        r1_c2.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
+
         r2_c1, r2_c2 = st.columns(2)
-        r2_c1.metric(
+        r2_c1.metric("Theoretical Mean (r̄)", f"{metrics.theoretical_mean_radius:.2f} m")
+        r2_c2.metric(
             "Simulated Mean",
             f"{metrics.empirical_mean_radius:.2f} m",
             f"{metrics.rel_error_pct:.2f}% err",
             delta_color="off",
             delta_arrow="off",
         )
-        r2_c2.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
     else:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric(

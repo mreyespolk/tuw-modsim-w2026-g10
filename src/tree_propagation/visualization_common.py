@@ -38,6 +38,28 @@ class TransectSeries:
     pdf_pos: np.ndarray
 
 
+def default_distance_limit(r_bar: float) -> float:
+    """Distance-axis upper limit used when there are no seeds to derive it from (5·r̄, at least 1 m)."""
+    return max(r_bar * 5.0, 1.0)
+
+
+def exponential_pdf(x: np.ndarray, r_bar: float, weight: float = 1.0) -> np.ndarray:
+    """Density of Exp(r̄) at |x|, scaled by `weight`; all zeros when r̄ <= 0."""
+    if r_bar <= 0.0:
+        return np.zeros_like(x, dtype=float)
+    return (weight / r_bar) * np.exp(-np.abs(x) / r_bar)
+
+
+def compute_distance_rings(r_bar: float) -> tuple[float, float, float]:
+    """Radii (median, mean, 95% quantile) of the Exp(r̄) distance distribution."""
+    return r_bar * float(np.log(2.0)), r_bar, r_bar * float(np.log(20.0))
+
+
+def exp_pdf_label(r_bar: float) -> str:
+    """Legend label for the theoretical Exp(r̄) density curve."""
+    return f"Exp PDF (r̄ = {r_bar:.2f} m)"
+
+
 def compass_label_positions(margin: float = 0.03) -> list[tuple[str, tuple[float, float]]]:
     """Returns normalized (x, y) axis-domain coordinates for N, S, E, W labels."""
     return [
@@ -79,14 +101,11 @@ def compute_exponential_pdf_curve(
     if not result.is_empty:
         grid_max = float(np.percentile(result.distances, 99.5))
     else:
-        grid_max = max(r_bar * 5.0, 1.0)
+        grid_max = default_distance_limit(r_bar)
 
     x_grid = np.linspace(0.0, max(grid_max, 1e-6), num_points)
-    if r_bar <= 0.0:
-        return x_grid, np.zeros_like(x_grid)
+    return x_grid, exponential_pdf(x_grid, r_bar)
 
-    pdf = (1.0 / r_bar) * np.exp(-x_grid / r_bar)
-    return x_grid, pdf
 
 def compute_directional_transects(
     result: SeedShadowResult,
@@ -99,7 +118,7 @@ def compute_directional_transects(
     if max_dist is not None:
         upper_dist = max(max_dist, 1e-6)
     elif result.is_empty:
-        upper_dist = max(r_bar * 5.0, 1.0)
+        upper_dist = default_distance_limit(r_bar)
     else:
         upper_dist = max(float(np.percentile(result.distances, 99.5)), r_bar * 2.0, 1.0)
 
@@ -123,15 +142,8 @@ def compute_directional_transects(
 
     transects: list[TransectSeries] = []
     for pos_dir, neg_dir in TRANSECT_SPECS:
-        p_pos = travel_rose.downwind_probability(pos_dir)
-        p_neg = travel_rose.downwind_probability(neg_dir)
-
-        if r_bar > 0.0:
-            pdf_pos = (p_pos / r_bar) * np.exp(-x_pos / r_bar)
-            pdf_neg = (p_neg / r_bar) * np.exp(-np.abs(x_neg) / r_bar)
-        else:
-            pdf_pos = np.zeros_like(x_pos)
-            pdf_neg = np.zeros_like(x_neg)
+        pdf_pos = exponential_pdf(x_pos, r_bar, weight=travel_rose.downwind_probability(pos_dir))
+        pdf_neg = exponential_pdf(x_neg, r_bar, weight=travel_rose.downwind_probability(neg_dir))
 
         if total_seeds > 0:
             pos_dists = result.distances[sectors == pos_dir.sector_index]

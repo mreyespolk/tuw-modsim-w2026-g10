@@ -1,7 +1,7 @@
 import math
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
@@ -16,9 +16,13 @@ from tree_propagation.types import DispersalType
 from tree_propagation.visualization_common import (
     compass_label_positions,
     compute_directional_transects,
+    compute_distance_rings,
     compute_exponential_pdf_curve,
     compute_plot_extent,
     compute_sector_boundary_endpoints,
+    default_distance_limit,
+    exp_pdf_label,
+    exponential_pdf,
 )
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 
@@ -49,6 +53,12 @@ GRADUAL_GREENS = [
     [0.85, "#68AE6A"],  # light spring green
     [1.00, "#93B87C"],  # pale lime (outer edges)
 ]
+
+# Seed colors use distance**SEED_COLOR_POWER so the dense near-parent region keeps visible contrast.
+SEED_COLOR_POWER = 0.75
+SIMULATED_COLOR = "steelblue"
+PAPER_BG = "#F8F9FA"
+SHADOW_PLOT_BG = "#DFE3E8"
 
 MARKER_SYMBOLS = (
     "circle",
@@ -204,6 +214,226 @@ def plot_wind_rose(wind_rose: WindRose) -> go.Figure:
     return fig
 
 
+@dataclass(frozen=True)
+class _ShadowPanelStyle:
+    """Styling that differs between the standalone 2D seed shadow and the combined figure's panel."""
+
+    colorbar: dict
+    colorbar_ticks: int
+    parent_trace: type[go.Scatter] | type[go.Scattergl]
+    parent_name: str
+    parent_size: int
+    parent_line_width: float
+    ray_opacity: float
+    # Legend label templates for the (median, mean, 95% quantile) rings, formatted with the radius.
+    ring_labels: tuple[str, str, str]
+    ring_width: float
+    compass_margin: float
+    compass_font_size: int
+    x_title: str
+    y_title: str
+    x_axis_extra: dict = field(default_factory=dict)
+
+
+_COMBINED_PANEL_STYLE = _ShadowPanelStyle(
+    colorbar={"title": "Distance [m]", "x": 0.288, "xanchor": "left", "len": 0.85},
+    colorbar_ticks=6,
+    parent_trace=go.Scattergl,
+    parent_name="Parent Tree (0, 0)",
+    parent_size=12,
+    parent_line_width=1.5,
+    ray_opacity=0.6,
+    ring_labels=("50% Median ({:.1f} m)", "Theoretical Mean ({:.1f} m)", "95% Quantile ({:.1f} m)"),
+    ring_width=1.5,
+    compass_margin=0.02,
+    compass_font_size=12,
+    x_title="x [m]<br>(East →)",
+    y_title="y [m]<br>(North ↑)",
+    x_axis_extra={"constraintoward": "right"},
+)
+
+_STANDALONE_PANEL_STYLE = _ShadowPanelStyle(
+    colorbar={"title": "r [m]", "thickness": 12, "len": 0.8},
+    colorbar_ticks=5,
+    parent_trace=go.Scatter,
+    parent_name="Parent (0, 0)",
+    parent_size=10,
+    parent_line_width=1.3,
+    ray_opacity=0.55,
+    ring_labels=("50% ({:.1f} m)", "Mean r̄ ({:.1f} m)", "95% ({:.1f} m)"),
+    ring_width=1.3,
+    compass_margin=0.03,
+    compass_font_size=11,
+    x_title="x [m] (East →)",
+    y_title="y [m] (North ↑)",
+)
+
+
+def _subsample_seeds(result: SeedShadowResult, max_points: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Evenly thins (xs, ys, distances) to at most `max_points` so browser WebGL stays responsive."""
+    xs, ys, dists = result.xs, result.ys, result.distances
+    if len(xs) > max_points:
+        idx = np.linspace(0, len(xs) - 1, max_points, dtype=int)
+        return xs[idx], ys[idx], dists[idx]
+    return xs, ys, dists
+
+
+def _seed_scatter_trace(
+    xs: np.ndarray, ys: np.ndarray, dists: np.ndarray, colorbar: dict, target_ticks: int
+) -> go.Scattergl:
+    """Seed landing points colored by distance on a power scale, with a colorbar labeled in meters."""
+    cmax_m = max(float(np.percentile(dists, 98)), 1e-6)
+    tick_vals_m = _nice_colorbar_ticks(cmax_m, target_ticks=target_ticks)
+    return go.Scattergl(
+        x=xs,
+        y=ys,
+        mode="markers",
+        name="Seeds",
+        marker={
+            "size": 4,
+            "color": np.clip(dists, 0, cmax_m) ** SEED_COLOR_POWER,
+            "cmin": 0,
+            "cmax": cmax_m**SEED_COLOR_POWER,
+            "colorscale": GRADUAL_GREENS,
+            "opacity": 0.60,
+            "line": {"width": 0.35, "color": "rgba(13, 66, 40, 0.3)"},
+            "colorbar": {
+                **colorbar,
+                "tickvals": [t**SEED_COLOR_POWER for t in tick_vals_m],
+                "ticktext": [f"{t:g}" for t in tick_vals_m],
+            },
+        },
+        customdata=dists,
+        hovertemplate="x: %{x:.2f} m<br>y: %{y:.2f} m<br>r: %{customdata:.2f} m<extra></extra>",
+    )
+
+
+def _add_seed_shadow_panel(
+    fig: go.Figure,
+    result: SeedShadowResult,
+    extent: float,
+    max_scatter_points: int,
+    style: _ShadowPanelStyle,
+    **subplot: int,
+) -> None:
+    """Draws seeds, parent, wind-sector rays, Exp(r̄) rings, compass labels and square axes.
+
+    `subplot` is `row=..., col=...` when drawing into a subplot grid, and empty for a plain figure.
+    """
+    r_bar = result.theoretical_mean_radius
+
+    if not result.is_empty:
+        xs, ys, dists = _subsample_seeds(result, max_scatter_points)
+        fig.add_trace(_seed_scatter_trace(xs, ys, dists, style.colorbar, style.colorbar_ticks), **subplot)
+
+    fig.add_trace(
+        style.parent_trace(
+            x=[0],
+            y=[0],
+            mode="markers",
+            name=style.parent_name,
+            marker={
+                "symbol": "x",
+                "size": style.parent_size,
+                "color": "deeppink",
+                "line": {"width": style.parent_line_width, "color": "black"},
+            },
+            hovertemplate="Parent Tree (0, 0)<extra></extra>",
+        ),
+        **subplot,
+    )
+
+    if result.dispersal_type == DispersalType.WIND:
+        for x1, y1 in compute_sector_boundary_endpoints(extent, scale=1.1):
+            fig.add_shape(
+                type="line",
+                x0=0,
+                y0=0,
+                x1=x1,
+                y1=y1,
+                line={"color": "gray", "width": 1, "dash": "dash"},
+                opacity=style.ray_opacity,
+                layer="below",
+                **subplot,
+            )
+
+    ring_line_styles = (
+        ("#D32F2F", "dot", style.ring_width),
+        ("red", "solid", 2.0),
+        ("#B71C1C", "dash", style.ring_width),
+    )
+    for radius, label, (color, dash, width) in zip(
+        compute_distance_rings(r_bar), style.ring_labels, ring_line_styles, strict=True
+    ):
+        if radius <= 0.0:
+            continue
+        line = {"color": color, "width": width, "dash": dash}
+        fig.add_shape(type="circle", x0=-radius, y0=-radius, x1=radius, y1=radius, line=line, **subplot)
+        # Shapes have no legend entry, so add an invisible line trace for one.
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode="lines", name=label.format(radius), line=line), **subplot)
+
+    for label, (lx, ly) in compass_label_positions(margin=style.compass_margin):
+        fig.add_annotation(
+            x=lx,
+            y=ly,
+            xref="x domain",
+            yref="y domain",
+            text=f"<b>{label}</b>",
+            showarrow=False,
+            font={"color": "dimgray", "size": style.compass_font_size},
+        )
+
+    fig.update_xaxes(
+        title_text=style.x_title,
+        range=[-extent, extent],
+        scaleanchor="y",
+        scaleratio=1,
+        constrain="domain",
+        **style.x_axis_extra,
+        **subplot,
+    )
+    # TO DO: Figure out how we can rotate the y-axis title so it is horizontal
+    fig.update_yaxes(title_text=style.y_title, range=[-extent, extent], constrain="domain", **subplot)
+
+
+def _exp_pdf_trace(x: np.ndarray, pdf: np.ndarray, r_bar: float, **trace_kwargs) -> go.Scatter:
+    """Red dashed theoretical Exp(r̄) density curve."""
+    return go.Scatter(
+        x=x,
+        y=pdf,
+        mode="lines",
+        name=exp_pdf_label(r_bar),
+        line={"color": "red", "width": 2, "dash": "dash"},
+        **trace_kwargs,
+    )
+
+
+def _density_bar_trace(centers: np.ndarray, density: np.ndarray, bin_width: float, **trace_kwargs) -> go.Bar:
+    """Pre-binned simulated density bars."""
+    return go.Bar(
+        x=centers,
+        y=density,
+        width=bin_width * 0.92,
+        name="Simulated",
+        marker_color=SIMULATED_COLOR,
+        opacity=0.65,
+        **trace_kwargs,
+    )
+
+
+def _add_mean_vline(fig: go.Figure, mean: float, label: str, **subplot: int) -> None:
+    """Dotted vertical line marking the simulated mean distance."""
+    fig.add_vline(
+        x=mean,
+        line_width=2,
+        line_dash="dot",
+        line_color="black",
+        annotation_text=f"{label} = {mean:.2f} m",
+        annotation_position="top right",
+        **subplot,  # type: ignore[arg-type]
+    )
+
+
 def plot_simulated_seed_shadow_and_distance_histogram(
     result: SeedShadowResult, metrics: SeedShadowMetrics, max_scatter_points: int = 100_000
 ) -> go.Figure:
@@ -219,186 +449,29 @@ def plot_simulated_seed_shadow_and_distance_histogram(
         horizontal_spacing=0.12,
     )
 
-    xs, ys = result.xs, result.ys
-    dists = result.distances
-    r_bar = result.theoretical_mean_radius
-    max_extent = compute_plot_extent(result)
-
-    if not result.is_empty:
-        # Subsample only if total seeds exceed max_scatter_points so browser WebGL stays responsive
-        if len(xs) > max_scatter_points:
-            idx = np.linspace(0, len(xs) - 1, max_scatter_points, dtype=int)
-            plot_xs, plot_ys, plot_dists = xs[idx], ys[idx], dists[idx]
-        else:
-            plot_xs, plot_ys, plot_dists = xs, ys, dists
-
-        power = 0.75
-        cmax_m = max(float(np.percentile(plot_dists, 98)), 1e-6)
-        color_vals = np.clip(plot_dists, 0, cmax_m) ** power
-        tick_vals_m = _nice_colorbar_ticks(cmax_m)
-
-        fig.add_trace(
-            go.Scattergl(
-                x=plot_xs,
-                y=plot_ys,
-                mode="markers",
-                name="Seeds",
-                marker={
-                    "size": 4,
-                    "color": color_vals,
-                    "cmin": 0,
-                    "cmax": cmax_m**power,
-                    "colorscale": GRADUAL_GREENS,
-                    "opacity": 0.60,
-                    "line": {"width": 0.35, "color": "rgba(13, 66, 40, 0.3)"},
-                    "colorbar": {
-                        "title": "Distance [m]",
-                        "x": 0.288,
-                        "xanchor": "left",
-                        "len": 0.85,
-                        "tickvals": [t**power for t in tick_vals_m],
-                        "ticktext": [f"{t:g}" for t in tick_vals_m],
-                    },
-                },
-                customdata=plot_dists,
-                hovertemplate="x: %{x:.2f} m<br>y: %{y:.2f} m<br>r: %{customdata:.2f} m<extra></extra>",
-            ),
-            row=1,
-            col=1,
-        )
-
-    # Parent tree at (0, 0)
-    fig.add_trace(
-        go.Scattergl(
-            x=[0],
-            y=[0],
-            mode="markers",
-            name="Parent Tree (0, 0)",
-            marker={"symbol": "x", "size": 12, "color": "deeppink", "line": {"width": 1.5, "color": "black"}},
-            hovertemplate="Parent Tree (0, 0)<extra></extra>",
-        ),
-        row=1,
-        col=1,
-    )
-
-    # Wind sector boundary rays
-    if result.dispersal_type == DispersalType.WIND:
-        for x1, y1 in compute_sector_boundary_endpoints(max_extent, scale=1.1):
-            fig.add_shape(
-                type="line",
-                x0=0,
-                y0=0,
-                x1=x1,
-                y1=y1,
-                line={"color": "gray", "width": 1, "dash": "dash"},
-                opacity=0.6,
-                layer="below",
-                row=1,
-                col=1,
-            )
-
-    # Theoretical mean dispersal radius and quantiles circle + legend entry
-    rings = (
-        (r_bar * float(np.log(2.0)), f"50% Median ({r_bar * np.log(2.0):.1f} m)", "#D32F2F", "dot", 1.5),
-        (r_bar, f"Theoretical Mean ({r_bar:.1f} m)", "red", "solid", 2.0),
-        (r_bar * float(np.log(20.0)), f"95% Quantile ({r_bar * np.log(20.0):.1f} m)", "#B71C1C", "dash", 1.5),
-    )
-
-    for radius, label, color, dash, width in rings:
-        if radius <= 0.0:
-            continue
-        fig.add_shape(
-            type="circle",
-            x0=-radius,
-            y0=-radius,
-            x1=radius,
-            y1=radius,
-            line={"color": color, "width": width, "dash": dash},
-            row=1,
-            col=1,
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=[None],
-                y=[None],
-                mode="lines",
-                name=label,
-                line={"color": color, "width": width, "dash": dash},
-            ),
-            row=1,
-            col=1,
-        )
-
-    for label, (lx, ly) in compass_label_positions(margin=0.02):
-        fig.add_annotation(
-            x=lx,
-            y=ly,
-            xref="x domain",
-            yref="y domain",
-            text=f"<b>{label}</b>",
-            showarrow=False,
-            font={"color": "dimgray", "size": 12},
-        )
-
-    fig.update_xaxes(
-        title_text="x [m]<br>(East →)",
-        range=[-max_extent, max_extent],
-        scaleanchor="y",
-        scaleratio=1,
-        constrain="domain",
-        constraintoward="right",
-        row=1,
-        col=1,
-    )
-    # TO DO: Figure out how we can rotate this so it is horizontal
-    fig.update_yaxes(
-        title_text="y [m]<br>(North ↑)",
-        range=[-max_extent, max_extent],
-        constrain="domain",
-        row=1,
-        col=1,
+    _add_seed_shadow_panel(
+        fig, result, compute_plot_extent(result), max_scatter_points, _COMBINED_PANEL_STYLE, row=1, col=1
     )
 
     # Dispersal Distance Histogram vs Theoretical Exponential PDF
     if not result.is_empty:
         fig.add_trace(
             go.Histogram(
-                x=dists,
+                x=result.distances,
                 xbins={"start": 0},
                 nbinsx=60,
                 histnorm="probability density",
                 name="Simulated",
-                marker_color="steelblue",
+                marker_color=SIMULATED_COLOR,
                 opacity=0.6,
             ),
             row=1,
             col=2,
         )
-
-        empirical_mean = metrics.empirical_mean_radius
-        fig.add_vline(
-            x=empirical_mean,
-            line_width=2,
-            line_dash="dot",
-            line_color="black",
-            annotation_text=f"Sample mean = {empirical_mean:.2f} m",
-            annotation_position="top right",
-            row=1,  # type: ignore
-            col=2,  # type: ignore
-        )
+        _add_mean_vline(fig, metrics.empirical_mean_radius, "Sample mean", row=1, col=2)
 
     x_grid, pdf = compute_exponential_pdf_curve(result)
-    fig.add_trace(
-        go.Scatter(
-            x=x_grid,
-            y=pdf,
-            mode="lines",
-            name=f"Exp PDF (r̄ = {r_bar:.2f} m)",
-            line={"color": "red", "width": 2, "dash": "dash"},
-        ),
-        row=1,
-        col=2,
-    )
+    fig.add_trace(_exp_pdf_trace(x_grid, pdf, result.theoretical_mean_radius), row=1, col=2)
 
     fig.update_xaxes(title_text="Distance r [m]", row=1, col=2)
     fig.update_yaxes(title_text="Probability Density", row=1, col=2)
@@ -409,8 +482,8 @@ def plot_simulated_seed_shadow_and_distance_histogram(
     fig.update_layout(
         height=550,
         template="plotly_white",
-        plot_bgcolor="#DFE3E8",
-        paper_bgcolor="#F8F9FA",
+        plot_bgcolor=SHADOW_PLOT_BG,
+        paper_bgcolor=PAPER_BG,
         dragmode="zoom",
         legend={"orientation": "h", "yanchor": "bottom", "y": -0.22, "xanchor": "center", "x": 0.5},
         margin={"t": 70, "b": 90, "l": 50, "r": 30},
@@ -425,126 +498,15 @@ def plot_seed_shadow_2d(
 ) -> go.Figure:
     """Single-panel square 2D seed shadow plot with optional shared axis extent."""
     extent = max_extent if max_extent is not None else compute_plot_extent(result)
-    r_bar = result.theoretical_mean_radius
     fig = go.Figure()
+    _add_seed_shadow_panel(fig, result, extent, max_scatter_points, _STANDALONE_PANEL_STYLE)
 
-    if not result.is_empty:
-        xs, ys, dists = result.xs, result.ys, result.distances
-        if len(xs) > max_scatter_points:
-            idx = np.linspace(0, len(xs) - 1, max_scatter_points, dtype=int)
-            xs, ys, dists = xs[idx], ys[idx], dists[idx]
-
-        power = 0.75
-        cmax_m = max(float(np.percentile(dists, 98)), 1e-6)
-        color_vals = np.clip(dists, 0, cmax_m) ** power
-        tick_vals_m = _nice_colorbar_ticks(cmax_m, target_ticks=5)
-
-        fig.add_trace(
-            go.Scattergl(
-                x=xs,
-                y=ys,
-                mode="markers",
-                name="Seeds",
-                marker={
-                    "size": 4,
-                    "color": color_vals,
-                    "cmin": 0,
-                    "cmax": cmax_m**power,
-                    "colorscale": GRADUAL_GREENS,
-                    "opacity": 0.60,
-                    "line": {"width": 0.35, "color": "rgba(13, 66, 40, 0.3)"},
-                    "colorbar": {
-                        "title": "r [m]",
-                        "thickness": 12,
-                        "len": 0.8,
-                        "tickvals": [t**power for t in tick_vals_m],
-                        "ticktext": [f"{t:g}" for t in tick_vals_m],
-                    },
-                },
-                customdata=dists,
-                hovertemplate="x: %{x:.2f} m<br>y: %{y:.2f} m<br>r: %{customdata:.2f} m<extra></extra>",
-            )
-        )
-
-    fig.add_trace(
-        go.Scatter(
-            x=[0],
-            y=[0],
-            mode="markers",
-            name="Parent (0, 0)",
-            marker={"symbol": "x", "size": 10, "color": "deeppink", "line": {"width": 1.3, "color": "black"}},
-            hovertemplate="Parent Tree (0, 0)<extra></extra>",
-        )
-    )
-
-    if result.dispersal_type == DispersalType.WIND:
-        for x1, y1 in compute_sector_boundary_endpoints(extent, scale=1.1):
-            fig.add_shape(
-                type="line",
-                x0=0,
-                y0=0,
-                x1=x1,
-                y1=y1,
-                line={"color": "gray", "width": 1, "dash": "dash"},
-                opacity=0.55,
-                layer="below",
-            )
-
-    rings = (
-        (r_bar * float(np.log(2.0)), f"50% ({r_bar * np.log(2.0):.1f} m)", "#D32F2F", "dot", 1.3),
-        (r_bar, f"Mean r̄ ({r_bar:.1f} m)", "red", "solid", 2.0),
-        (r_bar * float(np.log(20.0)), f"95% ({r_bar * np.log(20.0):.1f} m)", "#B71C1C", "dash", 1.3),
-    )
-    for radius, label, color, dash, width in rings:
-        if radius <= 0.0:
-            continue
-        fig.add_shape(
-            type="circle",
-            x0=-radius,
-            y0=-radius,
-            x1=radius,
-            y1=radius,
-            line={"color": color, "width": width, "dash": dash},
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=[None],
-                y=[None],
-                mode="lines",
-                name=label,
-                line={"color": color, "width": width, "dash": dash},
-            )
-        )
-
-    for label, (lx, ly) in compass_label_positions(margin=0.03):
-        fig.add_annotation(
-            x=lx,
-            y=ly,
-            xref="x domain",
-            yref="y domain",
-            text=f"<b>{label}</b>",
-            showarrow=False,
-            font={"color": "dimgray", "size": 11},
-        )
-
-    fig.update_xaxes(
-        title_text="x [m] (East →)",
-        range=[-extent, extent],
-        scaleanchor="y",
-        scaleratio=1,
-        constrain="domain",
-    )
-    fig.update_yaxes(
-        title_text="y [m] (North ↑)",
-        range=[-extent, extent],
-        constrain="domain",
-    )
     fig.update_layout(
         title={"text": f"{result.species} ({result.dispersal_type.value})", "x": 0.5, "xanchor": "center"},
         height=400,
         template="plotly_white",
-        plot_bgcolor="#DFE3E8",
-        paper_bgcolor="#F8F9FA",
+        plot_bgcolor=SHADOW_PLOT_BG,
+        paper_bgcolor=PAPER_BG,
         dragmode="zoom",
         legend={
             "orientation": "h",
@@ -572,7 +534,7 @@ def plot_distance_distribution(
     elif not result.is_empty:
         upper_x = float(result.distances.max())
     else:
-        upper_x = max(r_bar * 5.0, 1.0)
+        upper_x = default_distance_limit(r_bar)
     upper_x = max(upper_x, 1e-6)
 
     fig = go.Figure()
@@ -580,36 +542,11 @@ def plot_distance_distribution(
     if not result.is_empty:
         counts, edges = np.histogram(result.distances, bins=bins, range=(0.0, upper_x), density=True)
         centers = 0.5 * (edges[:-1] + edges[1:])
-        fig.add_trace(
-            go.Bar(
-                x=centers,
-                y=counts,
-                width=float(edges[1] - edges[0]) * 0.92,
-                name="Simulated",
-                marker_color="steelblue",
-                opacity=0.65,
-            )
-        )
-        fig.add_vline(
-            x=metrics.empirical_mean_radius,
-            line_width=2,
-            line_dash="dot",
-            line_color="black",
-            annotation_text=f"Mean = {metrics.empirical_mean_radius:.2f} m",
-            annotation_position="top right",
-        )
+        fig.add_trace(_density_bar_trace(centers, counts, float(edges[1] - edges[0])))
+        _add_mean_vline(fig, metrics.empirical_mean_radius, "Mean")
 
     x_grid = np.linspace(0.0, upper_x, 300)
-    pdf = (1.0 / r_bar) * np.exp(-x_grid / r_bar) if r_bar > 0.0 else np.zeros_like(x_grid)
-    fig.add_trace(
-        go.Scatter(
-            x=x_grid,
-            y=pdf,
-            mode="lines",
-            name=f"Exp PDF (r̄ = {r_bar:.2f} m)",
-            line={"color": "red", "width": 2, "dash": "dash"},
-        )
-    )
+    fig.add_trace(_exp_pdf_trace(x_grid, exponential_pdf(x_grid, r_bar), r_bar))
 
     fig.update_xaxes(title_text="Distance r [m]", range=[0.0, upper_x])
     fig.update_yaxes(title_text="Probability Density")
@@ -617,7 +554,7 @@ def plot_distance_distribution(
         title={"text": "Dispersal Distance Distribution", "x": 0.5, "xanchor": "center"},
         height=300,
         template="plotly_white",
-        paper_bgcolor="#F8F9FA",
+        paper_bgcolor=PAPER_BG,
         legend={
             "orientation": "h",
             "yanchor": "top",
@@ -979,13 +916,10 @@ def plot_directional_transects(
         show_legend = idx == 0
 
         fig.add_trace(
-            go.Bar(
-                x=t.bin_centers,
-                y=t.empirical_density,
-                width=t.bin_width * 0.92,
-                name="Simulated",
-                marker_color="steelblue",
-                opacity=0.65,
+            _density_bar_trace(
+                t.bin_centers,
+                t.empirical_density,
+                t.bin_width,
                 showlegend=show_legend,
                 hovertemplate=(
                     f"<b>{t.title}</b><br>"
@@ -1002,12 +936,10 @@ def plot_directional_transects(
             (t.x_pos, t.pdf_pos, False),
         ):
             fig.add_trace(
-                go.Scatter(
-                    x=xs_branch,
-                    y=pdf_branch,
-                    mode="lines",
-                    name=f"Exp PDF (r̄ = {result.theoretical_mean_radius:.2f} m)",
-                    line={"color": "red", "width": 2, "dash": "dash"},
+                _exp_pdf_trace(
+                    xs_branch,
+                    pdf_branch,
+                    result.theoretical_mean_radius,
                     showlegend=show_legend and is_first_branch,
                     hoverinfo="skip",
                 ),
@@ -1065,7 +997,7 @@ def plot_directional_transects(
         },
         height=640 if is_vertical else 540,
         template="plotly_white",
-        paper_bgcolor="#F8F9FA",
+        paper_bgcolor=PAPER_BG,
         bargap=0.05,
         legend={
             "orientation": "h",

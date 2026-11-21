@@ -10,7 +10,15 @@ from tree_propagation.visualization_common import (
     compute_exponential_pdf_curve,
     compute_plot_extent,
     compute_sector_boundary_endpoints,
+    exp_pdf_label,
 )
+
+
+def _new_axes(size: tuple[int, int], title: str) -> plt.Axes:  # type: ignore
+    """Creates a standalone single-Axes figure with a white background and a title."""
+    _fig, ax = plt.subplots(1, figsize=size, facecolor="#FFFFFF")
+    ax.set_title(title)
+    return ax
 
 
 def draw_wind_rose_boundaries(ax: plt.Axes, max_extent: float, **style_kwargs) -> None:  # type: ignore
@@ -89,13 +97,7 @@ def plot_seed_shadow(
     }
 
     if ax_scatter is None:
-        _fig, ax_scatter = plt.subplots(
-            1,
-            figsize=size,
-            facecolor="#FFFFFF",
-            gridspec_kw={"wspace": 0.25},
-        )
-        ax_scatter.set_title(f"Seed shadow for species {result.species}")
+        ax_scatter = _new_axes(size, f"Seed shadow for species {result.species}")
 
     max_extent = compute_plot_extent(result)
 
@@ -137,8 +139,7 @@ def plot_distance_histogram(
     **style_kwargs,
 ) -> plt.Axes:  # type: ignore
     if ax_distance is None:
-        _fig, ax_distance = plt.subplots(1, figsize=size, facecolor="#FFFFFF")
-        ax_distance.set_title(f"Dispersal distance histogram for species {result.species}")
+        ax_distance = _new_axes(size, f"Dispersal distance histogram for species {result.species}")
 
     dists = result.distances
     r_bar = result.theoretical_mean_radius
@@ -182,7 +183,7 @@ def plot_distance_histogram(
         color="red",
         linewidth=2,
         linestyle="--",
-        label=f"Exp PDF (r̄ = {r_bar:.2f} m)",
+        label=exp_pdf_label(r_bar),
     )
 
     ax_distance.set_xlim(left=0)

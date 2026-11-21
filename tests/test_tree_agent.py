@@ -27,7 +27,7 @@ def test_newborn_has_zero_age_and_height(ahorn_tree_config: TreeConfig):
     agent = TreeAgent.newborn(ahorn_tree_config, x=3, y=4)
     assert (agent.age, agent.height_class, agent.x, agent.y) == (0, 0, 3, 4)
     assert agent.seeds == 0
-    assert agent.state == AgentStatus.ALIVE
+    assert agent.status == AgentStatus.ALIVE
 
 
 @pytest.mark.parametrize("height_class", [0, 1, 3, 5])

@@ -13,7 +13,7 @@ from tree_propagation.environment import EnvironmentState
 from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
 from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
 from tree_propagation.types import DispersalType
-from tree_propagation.visualization_common import (
+from tree_propagation.visualization.common import (
     compass_label_positions,
     compute_directional_transects,
     compute_distance_rings,

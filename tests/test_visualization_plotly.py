@@ -14,14 +14,14 @@ from tree_propagation.dispersal import compute_mean_dispersal_distance
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.metrics import evaluate_seed_shadow
 from tree_propagation.simulation import SeedDispersalSimulation, SeedDispersalSimulationParams
+from tree_propagation.species_config import SPECIES_TRAIT_LABELS, SpeciesConfig
 from tree_propagation.tables import build_species_trait_table
-from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
 from tree_propagation.types import DispersalType
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE
 
 
 @pytest.fixture(scope="module")
-def traits_df(tree_species_config: dict[str, TreeConfig]):
+def traits_df(tree_species_config: dict[str, SpeciesConfig]):
     return build_species_trait_table(tree_species_config)
 
 
@@ -47,10 +47,10 @@ def test_plot_wind_rose():
 
 
 @pytest.mark.parametrize("num_instances", [0, 50])
-def test_plot_seed_shadow_handles_empty_and_non_empty(ahorn_tree_config: TreeConfig, rng, num_instances: int):
+def test_plot_seed_shadow_handles_empty_and_non_empty(ahorn_species_config: SpeciesConfig, rng, num_instances: int):
     env_state = EnvironmentState()
     sim_params = SeedDispersalSimulationParams(
-        config=ahorn_tree_config,
+        config=ahorn_species_config,
         environment_state=env_state,
         num_instances=num_instances,
     )
@@ -121,8 +121,8 @@ def test_dispersal_reach_default_wind_strength_is_one(tree_species_config):
 
 
 # region Axis ranges adapt to data
-def test_pioneer_plot_y_range_covers_late_maturing_species(tree_species_config, ahorn_tree_config):
-    late = dataclasses.replace(ahorn_tree_config, species_name="Late", maturity_age=80, mean_life_span=300)
+def test_pioneer_plot_y_range_covers_late_maturing_species(tree_species_config, ahorn_species_config):
+    late = dataclasses.replace(ahorn_species_config, species_name="Late", maturity_age=80, mean_life_span=300)
     traits = build_species_trait_table({**tree_species_config, "Late": late})
 
     fig = vpl.plot_pioneer_climax_tradeoff(traits)

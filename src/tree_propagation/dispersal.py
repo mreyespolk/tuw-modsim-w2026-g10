@@ -1,7 +1,7 @@
 import numpy as np
 
 from tree_propagation.environment import EnvironmentState
-from tree_propagation.tree_config import TreeConfig
+from tree_propagation.species_config import SpeciesConfig
 from tree_propagation.types import DispersalType
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 
@@ -15,7 +15,7 @@ def empty_dispersal_result() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def compute_mean_dispersal_distance(
-    config: TreeConfig,
+    config: SpeciesConfig,
     height_class: int,
     environment: EnvironmentState,
 ) -> float:

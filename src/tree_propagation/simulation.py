@@ -6,14 +6,14 @@ from tree_propagation.agent import TreeAgent
 from tree_propagation.consts import DEFAULT_HEIGHT_CLASS, DEFAULT_RANDOM_SEED
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.models import DispersalHistory, SeedShadowResult
-from tree_propagation.tree_config import TreeConfig
+from tree_propagation.species_config import SpeciesConfig
 
 DEFAULT_SEED_DISPERSAL_SIMULATION_INSTANCES = 100
 
 
 @dataclass(frozen=True)
 class SeedDispersalSimulationParams:
-    config: TreeConfig
+    config: SpeciesConfig
     environment_state: EnvironmentState = field(default_factory=EnvironmentState)
     height_class: int = DEFAULT_HEIGHT_CLASS
     num_instances: int = DEFAULT_SEED_DISPERSAL_SIMULATION_INSTANCES

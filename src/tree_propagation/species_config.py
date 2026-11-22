@@ -23,7 +23,7 @@ SPECIES_TRAIT_LABELS = {
 
 
 @dataclass(frozen=True)
-class TreeConfig:
+class SpeciesConfig:
     species_name: str
     dispersal_type: DispersalType
     wind_spreading_factor: float | None
@@ -109,7 +109,7 @@ class TreeConfig:
         return np.minimum(ages // years_per_height_class, maximal_height_class)
 
 
-# Species CSV schema (data/tree_species_config.csv): TreeConfig field -> CSV column name.
+# Species CSV schema (data/tree_species_config.csv): SpeciesConfig field -> CSV column name.
 # The README "Species parameters" table mirrors this mapping.
 CSV_COLUMNS: dict[str, str] = {
     "species_name": "species",
@@ -125,8 +125,8 @@ CSV_COLUMNS: dict[str, str] = {
 }
 
 
-def tree_config_from_csv_row(row: Mapping[str, str]) -> TreeConfig:
-    """Parses one species CSV row (raw strings, columns per `CSV_COLUMNS`) into a TreeConfig.
+def species_config_from_csv_row(row: Mapping[str, str]) -> SpeciesConfig:
+    """Parses one species CSV row (raw strings, columns per `CSV_COLUMNS`) into a SpeciesConfig.
 
     Empty cells for the optional dispersal traits (`f`, `d_m`) become None.
     """
@@ -137,7 +137,7 @@ def tree_config_from_csv_row(row: Mapping[str, str]) -> TreeConfig:
         raw = cell(field)
         return float(raw) if raw else None
 
-    return TreeConfig(
+    return SpeciesConfig(
         species_name=cell("species_name"),
         dispersal_type=DispersalType(cell("dispersal_type")),
         wind_spreading_factor=optional_float("wind_spreading_factor"),
@@ -151,13 +151,13 @@ def tree_config_from_csv_row(row: Mapping[str, str]) -> TreeConfig:
     )
 
 
-def load_tree_configs_from_csv(csv_path: str | Path) -> dict[str, TreeConfig]:
+def load_species_configs_from_csv(csv_path: str | Path) -> dict[str, SpeciesConfig]:
     """Loads tree species configurations from a CSV file, keyed by species name.
 
     Raises:
         ValueError: if required columns are missing, a row is invalid, or a species is duplicated.
     """
-    configs: dict[str, TreeConfig] = {}
+    configs: dict[str, SpeciesConfig] = {}
 
     with Path(csv_path).open(mode="r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
@@ -167,7 +167,7 @@ def load_tree_configs_from_csv(csv_path: str | Path) -> dict[str, TreeConfig]:
 
         for line_num, row in enumerate(reader, start=2):
             try:
-                config = tree_config_from_csv_row(row)
+                config = species_config_from_csv_row(row)
             except (KeyError, ValueError, TypeError) as exc:
                 raise ValueError(f"Invalid config in {csv_path} at line {line_num}: {exc}") from exc
 

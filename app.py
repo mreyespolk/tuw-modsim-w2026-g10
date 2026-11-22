@@ -16,12 +16,12 @@ from tree_propagation.simulation import (
     SeedDispersalSimulation,
     SeedDispersalSimulationParams,
 )
-from tree_propagation.tables import build_species_trait_table, windrose_to_dataframe
-from tree_propagation.tree_config import (
+from tree_propagation.species_config import (
     SPECIES_TRAIT_LABELS,
-    TreeConfig,
-    load_tree_configs_from_csv,
+    SpeciesConfig,
+    load_species_configs_from_csv,
 )
+from tree_propagation.tables import build_species_trait_table, windrose_to_dataframe
 from tree_propagation.types import DispersalType
 from tree_propagation.visualization.common import compute_plot_extent
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
@@ -48,12 +48,12 @@ class SidebarControls:
 
 
 @st.cache_data
-def get_tree_configs(csv_path: str) -> dict[str, TreeConfig]:
-    return load_tree_configs_from_csv(csv_path)
+def get_species_configs(csv_path: str) -> dict[str, SpeciesConfig]:
+    return load_species_configs_from_csv(csv_path)
 
 
-def format_species_properties(config: TreeConfig):
-    """Formats a TreeConfig dataclass into a styled two-column property table."""
+def format_species_properties(config: SpeciesConfig):
+    """Formats a SpeciesConfig dataclass into a styled two-column property table."""
     rows = [(k, "—" if v is None else str(v)) for k, v in asdict(config).items()]
     df = pd.DataFrame(rows, columns=["Property", "Value"])
     return df.style.map(lambda _: "font-weight: bold", subset=pd.IndexSlice[:, ["Property"]])  # type: ignore
@@ -63,7 +63,7 @@ def _randomize_seed() -> None:
     st.session_state.seed = int(np.random.default_rng().integers(0, 1_000_000))
 
 
-def _default_species_indices(species_names: list[str], configs: dict[str, TreeConfig]) -> list[int]:
+def _default_species_indices(species_names: list[str], configs: dict[str, SpeciesConfig]) -> list[int]:
     """Picks one default species per dispersal type (Wind, Gravity, Animal), with safe fallback."""
     indices: list[int] = []
     for target_type in DEFAULT_DISPERSAL_ORDER:
@@ -184,12 +184,12 @@ def run_seed_shadow(params: SeedDispersalSimulationParams) -> tuple[SeedShadowRe
     return result, evaluate_seed_shadow(result)
 
 
-def render_seed_shadow_tab(configs: dict[str, TreeConfig], controls: SidebarControls) -> None:
+def render_seed_shadow_tab(configs: dict[str, SpeciesConfig], controls: SidebarControls) -> None:
     species_names = list(configs.keys())
     default_indices = _default_species_indices(species_names, configs)
     cols = st.columns(COMPARISON_SLOTS, gap="medium")
 
-    selections: list[tuple[TreeConfig, int]] = []
+    selections: list[tuple[SpeciesConfig, int]] = []
     for slot_idx, col in enumerate(cols):
         with col:
             choice = st.selectbox(
@@ -221,7 +221,7 @@ def render_seed_shadow_tab(configs: dict[str, TreeConfig], controls: SidebarCont
     env_state = EnvironmentState(wind_rose=DEFAULT_WIND_ROSE, wind_strength=controls.wind_strength)
 
     # Run all 3 cached simulations first so shared axis extents can be computed across them
-    runs: list[tuple[TreeConfig, SeedShadowResult, SeedShadowMetrics]] = []
+    runs: list[tuple[SpeciesConfig, SeedShadowResult, SeedShadowMetrics]] = []
     for cfg, k_val in selections:
         params = SeedDispersalSimulationParams(
             config=cfg,
@@ -292,7 +292,7 @@ def render_wind_tab(wind_rose: WindRose) -> None:
             "180° opposite (downwind) with uniform jitter within each 45° sector."
         )
 
-def render_species_overview_tab(configs: dict[str, TreeConfig], controls: SidebarControls) -> None:
+def render_species_overview_tab(configs: dict[str, SpeciesConfig], controls: SidebarControls) -> None:
     max_k = max(cfg.maximal_height_class for cfg in configs.values())
     ref_k = st.slider(
         "Reference Height Class (k) for Trait Table & Heatmap",
@@ -348,7 +348,7 @@ def main() -> None:
     st.set_page_config(page_title="Seed Dispersal Explorer", layout="wide")
     st.title("Tree Seed Shadow Simulator")
 
-    configs = get_tree_configs(str(DEFAULT_CONFIG_PATH))
+    configs = get_species_configs(str(DEFAULT_CONFIG_PATH))
     if not configs:
         st.error(f"No species configurations found in {DEFAULT_CONFIG_PATH}.")
         return

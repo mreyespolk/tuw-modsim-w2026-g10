@@ -11,7 +11,7 @@ from plotly.subplots import make_subplots
 from tree_propagation.dispersal import compute_mean_dispersal_distance
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.models import SeedShadowMetrics, SeedShadowResult
-from tree_propagation.tree_config import SPECIES_TRAIT_LABELS, TreeConfig
+from tree_propagation.species_config import SPECIES_TRAIT_LABELS, SpeciesConfig
 from tree_propagation.types import DispersalType
 from tree_propagation.visualization.common import (
     compass_label_positions,
@@ -568,7 +568,7 @@ def plot_distance_distribution(
     return fig
 
 def plot_dispersal_reach_by_age(
-    species_config: Mapping[str, TreeConfig],
+    species_config: Mapping[str, SpeciesConfig],
     wind_strength: int = 1,
 ) -> go.Figure:
     """Faceted step chart of the theoretical mean dispersal distance r̄ over each species' lifespan.
@@ -848,7 +848,7 @@ def plot_growth_over_time(traits_df: pd.DataFrame) -> go.Figure:
     for row, dtype, symbol in zip(ordered.itertuples(), dispersal_types, symbols, strict=True):
         lifespan = int(row.mean_life_span) # type: ignore
         ages = np.arange(0, lifespan + 1)
-        height_classes = TreeConfig.height_classes_from_params(
+        height_classes = SpeciesConfig.height_classes_from_params(
             ages, int(row.years_per_height_class), int(row.maximal_height_class) # type: ignore
         )
 

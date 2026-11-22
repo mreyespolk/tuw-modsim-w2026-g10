@@ -73,11 +73,11 @@ agents keep exact positions; grid cells are derived from them:
 ### Species parameters
 
 [data/tree_species_config.csv](./data/tree_species_config.csv) holds one row per species and is the
-single source of truth for the trait values (they may deviate from Table 1 of the assignment, _as modified by raising issues with the initial table with the project supervisor_). It is loaded and validated by `load_tree_configs_from_csv()` in
-[tree_config.py](./src/tree_propagation/tree_config.py). The column-to-field mapping below is
+single source of truth for the trait values (they may deviate from Table 1 of the assignment, _as modified by raising issues with the initial table with the project supervisor_). It is loaded and validated by `load_species_configs_from_csv()` in
+[species_config.py](./src/tree_propagation/species_config.py). The column-to-field mapping below is
 defined once in `CSV_COLUMNS` there; keep this table in sync when changing it.
 
-| CSV column  | Symbol | `TreeConfig` field        | Meaning                                                   |
+| CSV column  | Symbol | `SpeciesConfig` field        | Meaning                                                   |
 |-------------|--------|---------------------------|-----------------------------------------------------------|
 | `species`   | σ      | `species_name`            | Species name (German), unique key                         |
 | `dispersal` | –      | `dispersal_type`          | `wind`, `animal` or `gravity`                             |

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-import tree_propagation.visualization_plotly as visualization_plotly
+import tree_propagation.visualization.plotly as vpl
 from tree_propagation.consts import DEFAULT_HEIGHT_CLASS, DEFAULT_RANDOM_SEED
 from tree_propagation.environment import DEFAULT_WIND_STRENGTH, EnvironmentState
 from tree_propagation.metrics import evaluate_seed_shadow
@@ -23,7 +23,7 @@ from tree_propagation.tree_config import (
     load_tree_configs_from_csv,
 )
 from tree_propagation.types import DispersalType
-from tree_propagation.visualization_common import compute_plot_extent
+from tree_propagation.visualization.common import compute_plot_extent
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
 
 logging.basicConfig(level=logging.INFO)
@@ -128,17 +128,17 @@ def render_metrics_bar(metrics: SeedShadowMetrics, compact: bool = False) -> Non
             delta_color="off",
             delta_arrow="off",
         )
-        r1_c2.metric("Theoretical Mean (r̄)", f"{metrics.theoretical_mean_radius:.2f} m")
-    
+        r1_c2.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
+
         r2_c1, r2_c2 = st.columns(2)
-        r2_c1.metric(
+        r2_c1.metric("Theoretical Mean (r̄)", f"{metrics.theoretical_mean_radius:.2f} m")
+        r2_c2.metric(
             "Simulated Mean",
             f"{metrics.empirical_mean_radius:.2f} m",
             f"{metrics.rel_error_pct:.2f}% err",
             delta_color="off",
             delta_arrow="off",
         )
-        r2_c2.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
     else:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric(
@@ -251,19 +251,19 @@ def render_seed_shadow_tab(configs: dict[str, TreeConfig], controls: SidebarCont
                 st.warning("Zero seeds produced (estimated age k·T is below maturity age A).")
             else:
                 st.plotly_chart(
-                    visualization_plotly.plot_seed_shadow_2d(result=result, max_extent=shared_extent),
+                    vpl.plot_seed_shadow_2d(result=result, max_extent=shared_extent),
                     width="stretch",
                     key=f"shadow_2d_{slot_idx}",
                 )
                 st.plotly_chart(
-                    visualization_plotly.plot_distance_distribution(
+                    vpl.plot_distance_distribution(
                         result=result, metrics=metrics, max_dist=shared_max_dist
                     ),
                     width="stretch",
                     key=f"dist_hist_{slot_idx}",
                 )
                 st.plotly_chart(
-                    visualization_plotly.plot_directional_transects(
+                    vpl.plot_directional_transects(
                         result=result,
                         wind_rose=env_state.wind_rose,
                         max_dist=shared_max_dist,
@@ -282,7 +282,7 @@ def render_seed_shadow_tab(configs: dict[str, TreeConfig], controls: SidebarCont
 
 
 def render_wind_tab(wind_rose: WindRose) -> None:
-    st.plotly_chart(visualization_plotly.plot_wind_rose(wind_rose), width="stretch")
+    st.plotly_chart(vpl.plot_wind_rose(wind_rose), width="stretch")
     _, col_table, _ = st.columns([0.25, 0.5, 0.25], vertical_alignment="center")
     with col_table:
         st.subheader("Sector Probabilities (Blowing From Direction)")
@@ -312,14 +312,14 @@ def render_species_overview_tab(configs: dict[str, TreeConfig], controls: Sideba
         environment=env_state,
     )
 
-    st.plotly_chart(visualization_plotly.plot_pioneer_climax_tradeoff(traits_df), width="stretch")
-    st.plotly_chart(visualization_plotly.plot_species_lifecycle_timelines(traits_df), width="stretch")
+    st.plotly_chart(vpl.plot_pioneer_climax_tradeoff(traits_df), width="stretch")
+    st.plotly_chart(vpl.plot_species_lifecycle_timelines(traits_df), width="stretch")
     st.plotly_chart(
-        visualization_plotly.plot_dispersal_reach_by_age(configs, wind_strength=controls.wind_strength),
+        vpl.plot_dispersal_reach_by_age(configs, wind_strength=controls.wind_strength),
         width="stretch",
     )
-    st.plotly_chart(visualization_plotly.plot_growth_over_time(traits_df), width="stretch")
-    st.plotly_chart(visualization_plotly.plot_species_trait_heatmap(traits_df), width="stretch")
+    st.plotly_chart(vpl.plot_growth_over_time(traits_df), width="stretch")
+    st.plotly_chart(vpl.plot_species_trait_heatmap(traits_df), width="stretch")
 
     st.subheader("3D Trait Space Explorer")
     trait_keys = list(SPECIES_TRAIT_LABELS.keys())
@@ -332,7 +332,7 @@ def render_species_overview_tab(configs: dict[str, TreeConfig], controls: Sideba
         z_key = st.selectbox("Z-Axis Variable", trait_keys, index=2, format_func=SPECIES_TRAIT_LABELS.get)  # type: ignore
 
     st.plotly_chart(
-        visualization_plotly.plot_species_3d_scatter(traits_df, x_key=x_key, y_key=y_key, z_key=z_key),
+        vpl.plot_species_3d_scatter(traits_df, x_key=x_key, y_key=y_key, z_key=z_key),
         width="stretch",
     )
 

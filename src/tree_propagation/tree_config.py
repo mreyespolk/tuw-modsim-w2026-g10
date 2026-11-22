@@ -1,4 +1,5 @@
 import csv
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -107,31 +108,66 @@ class TreeConfig:
     ) -> np.ndarray:
         return np.minimum(ages // years_per_height_class, maximal_height_class)
 
-    @classmethod
-    def from_dict(cls, config_dict: dict[str, str]) -> "TreeConfig":
-        """Constructs a TreeConfig from a dictionary."""
-        return cls(
-            species_name=config_dict["species"].strip(),
-            dispersal_type=DispersalType(config_dict["dispersal"].strip()),
-            wind_spreading_factor=float(config_dict["f"]) if config_dict["f"] else None,
-            mean_dispersal_distance=float(config_dict["d_m"]) if config_dict["d_m"] else None,
-            fecundity=float(config_dict["phi"]),
-            maturity_age=int(config_dict["A_yr"]),
-            years_per_height_class=int(config_dict["T_yr"]),
-            maximal_height_class=int(config_dict["K"]),
-            mean_life_span=int(config_dict["L_yr"]),
-            shade_tolerance=float(config_dict["tau"]),
-        )
+
+# Species CSV schema (data/tree_species_config.csv): TreeConfig field -> CSV column name.
+# The README "Species parameters" table mirrors this mapping.
+CSV_COLUMNS: dict[str, str] = {
+    "species_name": "species",
+    "dispersal_type": "dispersal",
+    "wind_spreading_factor": "f",
+    "mean_dispersal_distance": "d_m",
+    "fecundity": "phi",
+    "maturity_age": "A_yr",
+    "years_per_height_class": "T_yr",
+    "maximal_height_class": "K",
+    "mean_life_span": "L_yr",
+    "shade_tolerance": "tau",
+}
+
+
+def tree_config_from_csv_row(row: Mapping[str, str]) -> TreeConfig:
+    """Parses one species CSV row (raw strings, columns per `CSV_COLUMNS`) into a TreeConfig.
+
+    Empty cells for the optional dispersal traits (`f`, `d_m`) become None.
+    """
+    def cell(field: str) -> str:
+        return (row[CSV_COLUMNS[field]] or "").strip()
+
+    def optional_float(field: str) -> float | None:
+        raw = cell(field)
+        return float(raw) if raw else None
+
+    return TreeConfig(
+        species_name=cell("species_name"),
+        dispersal_type=DispersalType(cell("dispersal_type")),
+        wind_spreading_factor=optional_float("wind_spreading_factor"),
+        mean_dispersal_distance=optional_float("mean_dispersal_distance"),
+        fecundity=float(cell("fecundity")),
+        maturity_age=int(cell("maturity_age")),
+        years_per_height_class=int(cell("years_per_height_class")),
+        maximal_height_class=int(cell("maximal_height_class")),
+        mean_life_span=int(cell("mean_life_span")),
+        shade_tolerance=float(cell("shade_tolerance")),
+    )
 
 
 def load_tree_configs_from_csv(csv_path: str | Path) -> dict[str, TreeConfig]:
-    """Loads tree species configurations from a CSV file, keyed by species name."""
+    """Loads tree species configurations from a CSV file, keyed by species name.
+
+    Raises:
+        ValueError: if required columns are missing, a row is invalid, or a species is duplicated.
+    """
     configs: dict[str, TreeConfig] = {}
 
     with Path(csv_path).open(mode="r", encoding="utf-8", newline="") as f:
-        for line_num, row in enumerate(csv.DictReader(f), start=2):
+        reader = csv.DictReader(f)
+        missing = [col for col in CSV_COLUMNS.values() if col not in (reader.fieldnames or [])]
+        if missing:
+            raise ValueError(f"Species CSV {csv_path} is missing required columns: {missing}")
+
+        for line_num, row in enumerate(reader, start=2):
             try:
-                config = TreeConfig.from_dict(config_dict=row)
+                config = tree_config_from_csv_row(row)
             except (KeyError, ValueError, TypeError) as exc:
                 raise ValueError(f"Invalid config in {csv_path} at line {line_num}: {exc}") from exc
 

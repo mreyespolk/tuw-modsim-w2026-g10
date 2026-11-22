@@ -15,6 +15,11 @@ def rng() -> np.random.Generator:
 
 
 @pytest.fixture(scope="session")
+def species_csv_path() -> Path:
+    return DATA_PATH
+
+
+@pytest.fixture(scope="session")
 def tree_species_config() -> dict[str, TreeConfig]:
     return load_tree_configs_from_csv(DATA_PATH)
 

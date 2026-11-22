@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tree_propagation.tree_config import TreeConfig, load_tree_configs_from_csv
+from tree_propagation.species_config import SpeciesConfig, load_species_configs_from_csv
 from tree_propagation.wind_config import WindDirection, WindRose
 
 DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "tree_species_config.csv"
@@ -15,12 +15,17 @@ def rng() -> np.random.Generator:
 
 
 @pytest.fixture(scope="session")
-def tree_species_config() -> dict[str, TreeConfig]:
-    return load_tree_configs_from_csv(DATA_PATH)
+def species_csv_path() -> Path:
+    return DATA_PATH
+
+
+@pytest.fixture(scope="session")
+def tree_species_config() -> dict[str, SpeciesConfig]:
+    return load_species_configs_from_csv(DATA_PATH)
 
 
 @pytest.fixture
-def ahorn_tree_config(tree_species_config: dict[str, TreeConfig]) -> TreeConfig:
+def ahorn_species_config(tree_species_config: dict[str, SpeciesConfig]) -> SpeciesConfig:
     """Wind-dispersed species (A=20 yr, T=12 yr, K=8)."""
     return tree_species_config["Ahorn"]
 

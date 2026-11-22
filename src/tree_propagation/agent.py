@@ -11,7 +11,7 @@ from tree_propagation.dispersal import (
 )
 from tree_propagation.environment import EnvironmentState
 from tree_propagation.models import DispersalHistory
-from tree_propagation.tree_config import TreeConfig
+from tree_propagation.species_config import SpeciesConfig
 from tree_propagation.types import AgentStatus
 
 
@@ -30,7 +30,7 @@ class TreeAgent:
 
     def __init__(
             self,
-            species_config: TreeConfig,
+            species_config: SpeciesConfig,
             age: int = 0,
             height_class: int = 0,
             x: float = 0.0,
@@ -49,8 +49,8 @@ class TreeAgent:
         self._validate_init_params()
 
     def _validate_init_params(self) -> None:
-        if not isinstance(self.species_config, TreeConfig):
-            raise TypeError("'species_config' must be an instance of TreeConfig.")
+        if not isinstance(self.species_config, SpeciesConfig):
+            raise TypeError("'species_config' must be an instance of SpeciesConfig.")
 
         for name, val in (("age", self.age), ("height_class", self.height_class)):
             if not type_validation.is_strict_int(val) or val < 0:
@@ -78,7 +78,7 @@ class TreeAgent:
 
     @classmethod
     def from_height_class(
-        cls, species_config: TreeConfig, height_class: int, x: float = 0.0, y: float = 0.0
+        cls, species_config: SpeciesConfig, height_class: int, x: float = 0.0, y: float = 0.0
     ) -> "TreeAgent":
         """Instantiate an new agent when the age is not known, but the height class is."""
         estimated_age = height_class * species_config.years_per_height_class
@@ -92,7 +92,7 @@ class TreeAgent:
 
     @classmethod
     def from_age(
-        cls, species_config: TreeConfig, age: int, x: float = 0.0, y: float = 0.0
+        cls, species_config: SpeciesConfig, age: int, x: float = 0.0, y: float = 0.0
     ) -> "TreeAgent":
         """Instantiate an new agent when the age is known, but not the height class."""
         height_class = species_config.height_class_at_age(age)
@@ -105,7 +105,7 @@ class TreeAgent:
         )
 
     @classmethod
-    def newborn(cls, species_config: TreeConfig, x: float = 0.0, y: float = 0.0) -> "TreeAgent":
+    def newborn(cls, species_config: SpeciesConfig, x: float = 0.0, y: float = 0.0) -> "TreeAgent":
         """Instantiate a new agent as a newborn.
 
         For a tree established from a seed, pass the exact seed landing location `(x_land, y_land)`
@@ -121,7 +121,7 @@ class TreeAgent:
 
     @classmethod
     def from_dict(
-        cls, input_dict: Mapping[str, Any], species_config: TreeConfig, col_override: dict | None = None
+        cls, input_dict: Mapping[str, Any], species_config: SpeciesConfig, col_override: dict | None = None
     ) -> "TreeAgent":
         if col_override is None:
             col_override = {}

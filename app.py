@@ -119,48 +119,23 @@ def render_sidebar() -> SidebarControls:
 
 
 def render_metrics_bar(metrics: SeedShadowMetrics, compact: bool = False) -> None:
-    if compact:
-        r1_c1, r1_c2 = st.columns(2)
-        r1_c1.metric(
-            "Total Seeds",
-            f"{metrics.total_seeds:,}",
-            f"{metrics.mean_seeds_per_instance:.1f} / run",
-            delta_color="off",
-            delta_arrow="off",
-        )
-        r1_c2.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
-
-        r2_c1, r2_c2 = st.columns(2)
-        r2_c1.metric("Theoretical Mean (r̄)", f"{metrics.theoretical_mean_radius:.2f} m")
-        r2_c2.metric(
-            "Simulated Mean",
-            f"{metrics.empirical_mean_radius:.2f} m",
-            f"{metrics.rel_error_pct:.2f}% err",
-            delta_color="off",
-            delta_arrow="off",
-        )
-    else:
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric(
-            "Total Seeds Dispersed",
-            f"{metrics.total_seeds:,}",
-            f"avg {metrics.mean_seeds_per_instance:.1f} / run",
-            delta_color="off",
-            delta_arrow="off",
-        )
-        c2.metric("Theoretical Mean (r̄)", 
-                f"{metrics.theoretical_mean_radius:.3f} m",
-                delta_color="off",
-                delta_arrow="off",
-                )
-        c3.metric(
-            "Simulated Mean",
-            f"{metrics.empirical_mean_radius:.3f} m",
-            f"{metrics.rel_error_pct:.2f}% err",
-            delta_color="off",
-            delta_arrow="off",
-        )
-        c4.metric("KS-Test p-value", f"{metrics.ks_pvalue:.3f}")
+    ks_label = "accept" if metrics.ks_pvalue > 0.05 else "reject"
+    df = pd.DataFrame(
+        [
+            {
+                "Seeds": f"{metrics.total_seeds:,}",
+                "Avg Seeds / run": f"{metrics.mean_seeds_per_instance:.1f}",
+                "Theory (r̄)": f"{metrics.theoretical_mean_radius:.2f} m",
+                "Sim Mean": f"{metrics.empirical_mean_radius:.2f} m",
+                "Mean error": f"{metrics.rel_error_pct:.1f}%",
+                "Kolm.-Smir. p (ref=0.05)": f"{metrics.ks_pvalue:.3f} ({ks_label})",
+            }
+        ]
+    )
+    styled = df.style.hide(axis="index").set_table_styles(
+        [{"selector": "th", "props": [("font-weight", "bold")]}]
+    )
+    st.table(styled, hide_index=True)
 
 
 @st.cache_data(

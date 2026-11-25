@@ -86,7 +86,7 @@ Marianne Musterfrau sen., Matricular Number - Curriculum Number\footnote{Wrote i
 \maketitle
 
 \begin{abstract}
-Poorly written documentations of modelling projects are responsible for countless poor grades at Austrian universities. With this template, including the template abstract you are currently reading, we aim to reduce number of bad grades and improve the quality of scientific project documentations sustainably.
+Poorly written documentation of modelling projects is responsible for countless poor grades at Austrian universities. With this template, including the template abstract you are currently reading, we aim to reduce the number of bad grades and improve the quality of scientific project documentation sustainably.
 \end{abstract}
 
 \newpage
@@ -97,15 +97,15 @@ Poorly written documentations of modelling projects are responsible for countles
 
 \section{Introduction}
 \paragraph{Motivation.} 
-Poorly written documentations of modelling projects are responsible for countless poor grades at Austrian universities. 
+Poorly written documentation of modelling projects is responsible for countless poor grades at Austrian universities. 
 \paragraph{Introduction to the Topic.} The main causes range from poor structure to unscientific wording and typesetting.
-\paragraph{Reated Work.} This problem has also been addressed by \cite{zeigler2000theory}, for example, but it differs greatly from the current project. Note, that literature must be inserted into File \textit{references.bib} and can be cited via \verb|\cite{QUELLE}|.
-\paragraph{Aim.} However, goal of this project is to reduce this problem with the help of a template.
+\ paragraph {Related Work.} This problem has also been addressed by \cite{zeigler2000theory}, for example, but it differs greatly from the current project. Note that literature must be inserted into File \textit{references.bib} and can be cited via \verb|\cite{QUELLE}|.
+\paragraph{Aim.} However, the goal of this project is to reduce this problem with the help of a template.
 
 \section{Model}
 \subsection{Modelling}
 \label{sec:modelling}
-We first describe the conceptual modeling. Hereby we may apply various types of formulas such as numbered equations, like
+We first describe the conceptual modeling. Hereby, we may apply various types of formulas, such as numbered equations, like
 \begin{equation}
 \label{eq:pythogoras}
  a^2 + b^2 = c^2,
@@ -114,7 +114,7 @@ or non-numbered equations like
 \begin{equation*}
  \al + \be + \g = 180.
 \end{equation*}
-Numberes equations can be referenced via (\ref{eq:pythogoras}).
+Numbered equations can be referenced via (\ref{eq:pythogoras}).
 
 Use e.g. \textit{eqnarray}, \textit{align} or \textit{multline} environments for multi-row equations, such as
 \begin{eqnarray}
@@ -140,7 +140,7 @@ It is always good to use pictures and charts for visualising the model structure
  \label{fig:figure}
 \end{figure}
 \subsection{Parametrisation}
-It is important to distinguish between parameters and parameter values. The latter should be specified e.g. using a parameter table such as 
+It is important to distinguish between parameters and parameter values. The latter should be specified e.g., using a parameter table such as 
 Table \ref{tab:ParA}. Do not forget to explain where you got your parameter values from.
 \begin{table}[!h]
 {\small%
@@ -161,16 +161,16 @@ Table \ref{tab:ParA}. Do not forget to explain where you got your parameter valu
 
 \subsection{Implementation}
 
-Implementation should be distinguished from the conceptual modelling (see Section \ref{sec:modelling}) and described in a separate section. Keep it brief \textbf{do not} put the whole source-code into the documentation. If there are important snippets, you may use e.g. \verb|\lstinputlisting|.
+Implementation should be distinguished from the conceptual modelling (see Section \ref{sec:modelling}) and described in a separate section. Keep it brief; \textbf{do not} put the whole source code into the documentation. If there are important snippets, you may use e.g., \verb|\lstinputlisting|.
 
  \lstinputlisting[
  language=Matlab,
  caption={Function polar2cartesian.},
  label={SRC:polar2cartesian}]{./code/BeispielCode.m}
 
-Listing \ref{SRC:polar2cartesian} shows the source-code of \verb|polar2cartesian| in MATLAB. 
+Listing \ref{SRC:polar2cartesian} shows the source code of \verb|polar2cartesian| in MATLAB. 
  
-Source code without file can be included via:
+Source code without the file can be included via:
 \begin{lstlisting}[
  basicstyle=\footnotesize, % the size of the fonts that are used for the code
  frame=single,          
@@ -221,10 +221,10 @@ We document the results of the simulation as far as possible without potentially
 \end{figure}
 
 \section{Discussion}
-\paragraph{Summary.} We tell what we told, and summarise that we showed some important \LaTeX commands for scientific writing and displayed some dummy simulation results.
+\paragraph{Summary.} We summarise what we showed: important \LaTeX commands for scientific writing and dummy simulation results.
 \paragraph{Result Interpretation}
-We interpret the results and put them in contrast with each other and the real system. 
-\paragraph{Conclusion.} We conclude that writing a proper project documentation is not so hard and hope you have fun doing it yourself. 
+We interpret the results and contrast them with each other and with the real system. 
+\paragraph{Conclusion.} We conclude that writing a proper project documentation is not so hard, and hope you have fun doing it yourself. 
 \paragraph{Outlook.} However, we understand that further research might be necessary.
 \newpage
 

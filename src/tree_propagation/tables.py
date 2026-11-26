@@ -4,7 +4,7 @@ import pandas as pd
 
 from tree_propagation.consts import DEFAULT_HEIGHT_CLASS
 from tree_propagation.dispersal import compute_mean_dispersal_distance
-from tree_propagation.environment import EnvironmentState
+from tree_propagation.environment import DEFAULT_ENVIRONMENT_STATE, EnvironmentState
 from tree_propagation.species_config import SPECIES_TRAIT_LABELS, SpeciesConfig
 from tree_propagation.wind_config import WindRose
 
@@ -21,7 +21,7 @@ def build_species_trait_table(
     environment: EnvironmentState | None = None,
 ) -> pd.DataFrame:
     """Builds a tabular DataFrame of raw and derived species traits for tables and plots."""
-    env = environment if environment is not None else EnvironmentState()
+    env = environment if environment is not None else DEFAULT_ENVIRONMENT_STATE
     rows: list[dict[str, object]] = []
 
     for cfg in species_config.values():

@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from matplotlib import patches
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 from tree_propagation.models import SeedShadowResult
 from tree_propagation.types import DispersalType
@@ -85,6 +87,7 @@ def plot_seed_shadow(
     result: SeedShadowResult,
     ax_scatter: plt.Axes | None = None,  # type: ignore
     size: tuple[int, int] = (12, 12),
+    max_extent: float | None = None,
     **style_kwargs,
 ) -> plt.Axes:  # type: ignore
     style = {
@@ -99,7 +102,8 @@ def plot_seed_shadow(
     if ax_scatter is None:
         ax_scatter = _new_axes(size, f"Seed shadow for species {result.species}")
 
-    max_extent = compute_plot_extent(result)
+    if max_extent is None:
+        max_extent = compute_plot_extent(result)
 
     ax_scatter.set_facecolor("#FDF1D6")
     if not result.is_empty:
@@ -136,6 +140,7 @@ def plot_distance_histogram(
     result: SeedShadowResult,
     ax_distance: plt.Axes | None = None,  # type: ignore
     size: tuple[int, int] = (12, 12),
+    max_dist: float | None = None,
     **style_kwargs,
 ) -> plt.Axes:  # type: ignore
     if ax_distance is None:
@@ -186,34 +191,190 @@ def plot_distance_histogram(
         label=exp_pdf_label(r_bar),
     )
 
-    ax_distance.set_xlim(left=0)
+    if max_dist is not None:
+        ax_distance.set_xlim(0, max_dist)
+    else:
+        ax_distance.set_xlim(left=0)
+
     ax_distance.set_xlabel("Distance r [m]", fontweight="bold")
     ax_distance.set_ylabel("Probability Density", fontweight="bold")
-    ax_distance.legend()
+    ax_distance.legend(loc="upper right")
 
     return ax_distance
 
 
 def plot_simulated_seed_shadow_and_distance_histogram(
-    result: SeedShadowResult, size: tuple[int, int] = (12, 8)
+    result: SeedShadowResult,
+    size: tuple[float, float] = (10, 4.8),
+    max_extent: float | None = None,
+    max_dist: float | None = None,
 ) -> plt.Figure:  # type: ignore
     fig, (ax_scatter, ax_distance) = plt.subplots(
         1,
         2,
         figsize=size,
         facecolor="#FFFFFF",
-        gridspec_kw={"wspace": 0.25},
+        gridspec_kw={"wspace": 0.28},
     )
     fig.suptitle(
-        f"Seed shadow and dispersal distance\n(Species={result.species}, Simulations={result.num_instances})",
-        fontsize=14,
+        f"{result.species} ({result.dispersal_type.value}, n = {result.num_instances} simulations)",
+        fontsize=13,
         fontweight="bold",
-        y=0.96,
+        y=1.02,
     )
 
-    plot_seed_shadow(result=result, ax_scatter=ax_scatter)
-    plot_distance_histogram(result=result, ax_distance=ax_distance)
-
+    plot_seed_shadow(result=result, ax_scatter=ax_scatter, max_extent=max_extent)
+    plot_distance_histogram(result=result, ax_distance=ax_distance, max_dist=max_dist)
     ax_distance.set_box_aspect(1)
+
+    # Remove per-axes legends that overlap "N" and "Sample mean"
+    if ax_scatter.get_legend():
+        ax_scatter.get_legend().remove()
+    if ax_distance.get_legend():
+        ax_distance.get_legend().remove()
+
+    legend_handles = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="none",
+            markerfacecolor="green",
+            markeredgecolor="black",
+            alpha=0.5,
+            markersize=5,
+            label="Seeds",
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="X",
+            color="none",
+            markerfacecolor="deeppink",
+            markeredgecolor="black",
+            markersize=7,
+            label="Parent (0, 0)",
+        ),
+        Line2D(
+            [0],
+            [0],
+            color="red",
+            linewidth=2,
+            alpha=0.75,
+            label=f"Mean Radius ({result.theoretical_mean_radius:.2f} m)",
+        ),
+        Patch(
+            facecolor="steelblue",
+            edgecolor="white",
+            alpha=0.6,
+            label="Simulated",
+        ),
+        Line2D(
+            [0],
+            [0],
+            color="red",
+            linewidth=2,
+            linestyle="--",
+            label=f"Exp PDF (r̄ = {result.theoretical_mean_radius:.2f} m)",
+        ),
+        Line2D(
+            [0],
+            [0],
+            color="black",
+            linewidth=2,
+            linestyle=":",
+            label="Sample Mean",
+        ),
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.97),
+        ncol=3,
+        frameon=True,
+        fontsize=8.5,
+    )
+
+    return fig
+
+
+def plot_species_seed_shadow_grid(
+    results: list[SeedShadowResult],
+    max_extent: float | None = None,
+    max_dist: float | None = None,
+    num_rows: int | None = None,
+    row_height: float = 3.1,
+    fig_width: float = 9.0,
+) -> plt.Figure:  # type: ignore
+    """Plots a multi-row comparison grid of seed shadows and radial distance histograms."""
+    if not results:
+        raise ValueError("results must contain at least one SeedShadowResult.")
+
+    if max_extent is None:
+        max_extent = max(compute_plot_extent(r) for r in results)
+    if max_dist is None:
+        max_dist = max((float(r.distances.max()) for r in results if not r.is_empty), default=1.0)
+
+    n = len(results)
+    total_rows = max(n, num_rows or n)
+    fig, axes = plt.subplots(
+        total_rows,
+        2,
+        figsize=(fig_width, row_height * total_rows),
+        facecolor="#FFFFFF",
+        gridspec_kw={"wspace": 0.25, "hspace": 0.28},
+    )
+    if total_rows == 1:
+        axes = axes.reshape(1, 2)
+
+    for idx in range(total_rows):
+        ax_scatter, ax_dist = axes[idx]
+        if idx >= n:
+            ax_scatter.axis("off")
+            ax_dist.axis("off")
+            continue
+
+        result = results[idx]
+        plot_seed_shadow(result=result, ax_scatter=ax_scatter, max_extent=max_extent)
+        plot_distance_histogram(result=result, ax_distance=ax_dist, max_dist=max_dist)
+        ax_dist.set_box_aspect(1)
+
+        ax_scatter.set_title(
+            f"{result.species} ({result.dispersal_type.value})",
+            fontweight="bold",
+            fontsize=11,
+            loc="left",
+        )
+
+        # Remove all per-subplot legends so nothing overlaps N or "Sample mean"
+        if ax_scatter.get_legend():
+            ax_scatter.get_legend().remove()
+        if ax_dist.get_legend():
+            ax_dist.get_legend().remove()
+
+        # Keep x-axis labels only on the last populated row
+        if idx < n - 1:
+            ax_scatter.set_xlabel("")
+            ax_dist.set_xlabel("")
+
+    # Single shared legend centered above the grid
+    legend_handles = [
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="green",
+               markeredgecolor="black", alpha=0.5, markersize=5, label="Seeds"),
+        Line2D([0], [0], marker="X", color="none", markerfacecolor="deeppink",
+               markeredgecolor="black", markersize=7, label="Parent Tree (0, 0)"),
+        Line2D([0], [0], color="red", linewidth=2, alpha=0.75, label="Theoretical Mean Radius"),
+        Patch(facecolor="steelblue", edgecolor="white", alpha=0.6, label="Simulated Density"),
+        Line2D([0], [0], color="red", linewidth=2, linestyle="--", label="Theoretical Exp PDF"),
+        Line2D([0], [0], color="black", linewidth=2, linestyle=":", label="Sample Mean"),
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.005),
+        ncol=3,
+        frameon=True,
+        fontsize=9,
+    )
 
     return fig

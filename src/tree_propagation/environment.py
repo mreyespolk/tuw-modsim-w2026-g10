@@ -16,3 +16,6 @@ class EnvironmentState:
             raise TypeError("'wind_rose' must be a WindRose instance.")
         if not (type_validation.is_strict_int(self.wind_strength) and self.wind_strength >= 1):
             raise ValueError("'wind_strength' must be a positive integer.")
+
+
+DEFAULT_ENVIRONMENT_STATE = EnvironmentState()

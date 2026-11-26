@@ -11,7 +11,7 @@ import pytest
 
 import tree_propagation.visualization.plotly as vpl
 from tree_propagation.dispersal import compute_mean_dispersal_distance
-from tree_propagation.environment import EnvironmentState
+from tree_propagation.environment import DEFAULT_ENVIRONMENT_STATE, EnvironmentState
 from tree_propagation.metrics import evaluate_seed_shadow
 from tree_propagation.simulation import SeedDispersalSimulation, SeedDispersalSimulationParams
 from tree_propagation.species_config import SPECIES_TRAIT_LABELS, SpeciesConfig
@@ -48,7 +48,7 @@ def test_plot_wind_rose():
 
 @pytest.mark.parametrize("num_instances", [0, 50])
 def test_plot_seed_shadow_handles_empty_and_non_empty(ahorn_species_config: SpeciesConfig, rng, num_instances: int):
-    env_state = EnvironmentState()
+    env_state = DEFAULT_ENVIRONMENT_STATE
     sim_params = SeedDispersalSimulationParams(
         config=ahorn_species_config,
         environment_state=env_state,

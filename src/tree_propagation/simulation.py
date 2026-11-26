@@ -8,7 +8,7 @@ from tree_propagation.environment import DEFAULT_ENVIRONMENT_STATE, EnvironmentS
 from tree_propagation.models import DispersalHistory, SeedShadowResult
 from tree_propagation.species_config import SpeciesConfig
 
-DEFAULT_SEED_DISPERSAL_SIMULATION_INSTANCES = 100
+DEFAULT_SEED_DISPERSAL_SIMULATION_INSTANCES = 1000
 
 
 @dataclass(frozen=True)

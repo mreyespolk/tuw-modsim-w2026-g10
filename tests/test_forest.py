@@ -123,3 +123,78 @@ def test_excessive_population(config):
             configs={"Ahorn": config},
             rng=np.random.default_rng(42),
         )
+
+def test_neighbourhood():
+    forest = ForestGrid(10, 10)
+
+    assert len(forest.neighbours((5, 5))) == 8
+    assert len(forest.neighbours((0, 5))) == 5
+    assert len(forest.neighbours((0, 0))) == 3
+
+    assert (5, 5) not in forest.neighbours((5, 5))
+
+def test_shade_empty_forest():
+    forest = ForestGrid(10, 10)
+
+    assert forest.calculate_shade((5, 5)) == 0.0
+
+def test_shade_taller_neighbours(config):
+    forest = ForestGrid(10, 10)
+
+    for cell, k in [
+        ((5, 5), 2),
+        ((4, 4), 4),
+        ((4, 5), 3),
+        ((5, 4), 1),
+        ((6, 6), 2),
+    ]:
+        x, y = forest.cell_center(cell)
+
+        tree = TreeAgent.from_height_class(
+            species_config=config,
+            height_class=k,
+            x=x,
+            y=y,
+        )
+
+        forest.add_tree(tree)
+
+    assert forest.calculate_shade((5, 5)) == 2 / 8
+
+def test_shade_empty_cell(config):
+    forest = ForestGrid(10, 10)
+
+    for cell, k in [
+        ((4, 4), 3),
+        ((4, 5), 1),
+        ((5, 4), 0),
+    ]:
+        x, y = forest.cell_center(cell)
+
+        tree = TreeAgent.from_age(
+            species_config=config,
+            age=k * config.years_per_height_class,
+            x=x,
+            y=y,
+        )
+
+        forest.add_tree(tree)
+
+    assert forest.calculate_shade((5, 5)) == 2 / 8
+
+def test_shade_at_boundary(config):
+    forest = ForestGrid(10, 10)
+
+    for cell in [(0, 1), (1, 0), (1, 1)]:
+        x, y = forest.cell_center(cell)
+
+        tree = TreeAgent.from_height_class(
+            species_config=config,
+            height_class=3,
+            x=x,
+            y=y,
+        )
+
+        forest.add_tree(tree)
+
+    assert forest.calculate_shade((0, 0)) == 3 / 8

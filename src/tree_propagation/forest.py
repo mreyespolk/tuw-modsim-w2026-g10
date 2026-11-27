@@ -13,6 +13,12 @@ Cell = tuple[int, int]
 
 DEFAULT_CELL_SIZE = 5.0
 
+MOORE_OFFSETS: tuple[Cell, ...] = (
+    (-1, -1), (-1, 0), (-1, 1),
+    (0, -1),           (0, 1),
+    (1, -1),  (1, 0),  (1, 1),
+)
+
 
 class ForestGrid:
     """Rectangular forest with at most one tree per cell."""
@@ -99,6 +105,47 @@ class ForestGrid:
         """Return a snapshot of the population membership."""
 
         return tuple(self._trees.values())
+
+    """ === Moore Neighbourhood and Shade Methods === """
+    def neighbours(self, cell: Cell) -> tuple[Cell, ...]:
+        """Return valid cells in the Moore neighbourhood."""
+
+        if not self.in_bounds(cell):
+            raise ValueError("Cell is outside the forest.")
+
+        row, col = cell
+        neighbours = []
+
+        for dr, dc in MOORE_OFFSETS:
+            neighbour = (row + dr, col + dc)
+
+            if self.in_bounds(neighbour):
+                neighbours.append(neighbour)
+
+        return tuple(neighbours)
+
+    def calculate_shade(self, cell: Cell) -> float:
+        """Calculate shade from taller neighbouring trees."""
+
+        tree = self.get_tree(cell)
+
+        height_class = (
+            tree.height_class if tree is not None else 0
+        )
+
+        taller_neighbours = 0
+
+        for neighbour in self.neighbours(cell):
+            neighbour_tree = self.get_tree(neighbour)
+
+            if (
+                neighbour_tree is not None
+                and neighbour_tree.height_class > height_class
+            ):
+                taller_neighbours += 1
+
+        return taller_neighbours / len(MOORE_OFFSETS)
+    """ =================================== """
 
     @classmethod
     def random(

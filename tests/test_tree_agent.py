@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from tree_propagation.agent import TreeAgent
-from tree_propagation.environment import EnvironmentState
+from tree_propagation.environment import DEFAULT_ENVIRONMENT_STATE, EnvironmentState
 from tree_propagation.models import DispersalHistory
 from tree_propagation.species_config import SpeciesConfig
 from tree_propagation.types import AgentStatus
@@ -164,7 +164,7 @@ def test_disperse_seeds_resets_stock_and_returns_one_point_per_seed(
     produced = tree.produce_seeds(rng=rng)
     assert produced > 0
 
-    xs, ys, distances = tree.disperse_seeds(rng=rng, environment_state=EnvironmentState())
+    xs, ys, distances = tree.disperse_seeds(rng=rng, environment_state=DEFAULT_ENVIRONMENT_STATE)
 
     assert tree.seeds == 0
     assert xs.shape == ys.shape == distances.shape == (produced,)
@@ -177,7 +177,7 @@ def test_seeds_land_relative_to_off_origin_parent(ahorn_species_config: SpeciesC
         rng = np.random.default_rng(7)
         tree = TreeAgent.from_height_class(ahorn_species_config, height_class=5, x=x, y=y)
         tree.produce_seeds(rng=rng)
-        xs, ys, _ = tree.disperse_seeds(rng=rng, environment_state=EnvironmentState())
+        xs, ys, _ = tree.disperse_seeds(rng=rng, environment_state=DEFAULT_ENVIRONMENT_STATE)
         return xs, ys
 
     xs0, ys0 = landings(0.0, 0.0)
@@ -188,7 +188,7 @@ def test_seeds_land_relative_to_off_origin_parent(ahorn_species_config: SpeciesC
 
 def test_disperse_without_seeds_returns_empty_arrays(ahorn_species_config: SpeciesConfig, rng: np.random.Generator):
     tree = TreeAgent.newborn(ahorn_species_config)
-    xs, ys, distances = tree.disperse_seeds(rng=rng, environment_state=EnvironmentState())
+    xs, ys, distances = tree.disperse_seeds(rng=rng, environment_state=DEFAULT_ENVIRONMENT_STATE)
     assert xs.size == ys.size == distances.size == 0
 
 
@@ -212,7 +212,7 @@ def test_disperse_records_history(ahorn_species_config: SpeciesConfig, rng: np.r
     history = DispersalHistory()
 
     produced = tree.produce_seeds(rng=rng)
-    tree.disperse_seeds(rng=rng, environment_state=EnvironmentState(), history=history, step=7)
+    tree.disperse_seeds(rng=rng, environment_state=DEFAULT_ENVIRONMENT_STATE, history=history, step=7)
 
     assert len(history.records) == 1
     record = history.records[0]
@@ -226,7 +226,7 @@ def test_same_seed_gives_identical_dispersal(ahorn_species_config: SpeciesConfig
         rng = np.random.default_rng(seed)
         tree = _agent_at_age(ahorn_species_config, age=60)
         tree.produce_seeds(rng=rng)
-        return np.stack(tree.disperse_seeds(rng=rng, environment_state=EnvironmentState()))
+        return np.stack(tree.disperse_seeds(rng=rng, environment_state=DEFAULT_ENVIRONMENT_STATE))
 
     np.testing.assert_array_equal(run(123), run(123))
 # endregion

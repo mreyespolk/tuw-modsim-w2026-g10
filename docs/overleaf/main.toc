@@ -1,0 +1,27 @@
+\babel@toc {english}{}\relax 
+\contentsline {section}{\numberline {1}Introduction}{3}{section.1}%
+\contentsline {paragraph}{\nonumberline Motivation.}{3}{paragraph*.3}%
+\contentsline {paragraph}{\nonumberline Introduction to the Topic.}{3}{paragraph*.5}%
+\contentsline {paragraph}{\nonumberline Aim.}{3}{paragraph*.7}%
+\contentsline {section}{\numberline {2}Model}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Conceptual Modelling}{3}{subsection.2.1}%
+\contentsline {paragraph}{\nonumberline Agent lifecycle.}{3}{paragraph*.9}%
+\contentsline {paragraph}{\nonumberline Agent positioning.}{3}{paragraph*.11}%
+\contentsline {paragraph}{\nonumberline Seed Production.}{3}{paragraph*.13}%
+\contentsline {paragraph}{\nonumberline Dispersal Kernel and Directional Bearings.}{4}{paragraph*.15}%
+\contentsline {subsection}{\numberline {2.2}Parametrisation}{4}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Implementation}{5}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Simulation Results}{6}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Species seed shadow simulation}{6}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Simple forest simulation results}{9}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Vienna forest simulation results}{9}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Discussion}{9}{section.4}%
+\contentsline {paragraph}{\nonumberline Summary.}{9}{paragraph*.23}%
+\contentsline {paragraph}{\nonumberline Result Interpretation.}{10}{paragraph*.25}%
+\contentsline {paragraph}{\nonumberline Conclusion.}{10}{paragraph*.27}%
+\contentsline {paragraph}{\nonumberline Outlook.}{10}{paragraph*.29}%
+\contentsline {section}{\numberline {5}Statement on the use of AI}{10}{section.5}%
+\contentsline {section}{\numberline {A}Appendix}{11}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}Interactive Dashboard Structure}{11}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}Tree species parameters}{11}{subsection.A.2}%
+\providecommand \tocbasic@end@toc@file {}\tocbasic@end@toc@file 

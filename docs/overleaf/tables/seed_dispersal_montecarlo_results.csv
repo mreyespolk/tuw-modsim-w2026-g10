@@ -1,0 +1,12 @@
+species,dispersal,total_seeds,r_bar_theory_m,r_bar_sim_m,rel_error_pct,ks_pvalue
+Ahorn,wind,8066,36.0,35.689,0.863,0.343
+Akazie,gravity,12005,10.0,9.91,0.904,0.301
+Buche,animal,4851,30.0,31.146,3.821,0.116
+Esche,wind,9538,28.0,28.181,0.648,0.897
+Kastanie,animal,3095,10.0,9.439,5.614,0.108
+Kiefer,wind,7989,44.0,43.841,0.361,0.605
+Kirsche,animal,9656,60.0,59.87,0.217,0.39
+Linde,wind,6461,28.0,28.012,0.044,0.453
+Pappel,wind,8154,120.0,121.757,1.464,0.455
+Platane,wind,6369,72.0,73.269,1.763,0.065
+Zürgelbaum,animal,6455,60.0,59.669,0.552,0.749

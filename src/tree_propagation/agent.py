@@ -182,17 +182,52 @@ class TreeAgent:
             environment=environment_state,
         )
 
-    def grow(self):
-        """Not implemented: Ages the agent one time-step."""
-        raise NotImplementedError
+    def grow(self) -> None:
+        """Age the living tree by one year."""
+        if self.status == AgentStatus.DEAD:
+            return
 
-    def _evaluate_death_outcome(self):
-        """Not implemented: Obtains the outcome of whether the agent dies on this timestep or not."""
-        raise NotImplementedError
+        self.age += 1
 
-    def die(self, rng: np.random.Generator):
-        """Not implemented: Performs the action of killing the agent."""
-        raise NotImplementedError
+        self.height_class = (
+            self.species_config.height_class_at_age(self.age)
+        )
+
+    def _evaluate_death_outcome(
+            self,
+            rng: np.random.Generator,
+            shade: float,
+            environment_state: EnvironmentState,
+    ) -> bool:
+        """Sample whether the tree dies during this year."""
+
+        probability = self.mortality_probability(
+            shade=shade,
+            environment_state=environment_state,
+        )
+
+        return bool(rng.random() < probability)
+
+    def die(
+            self,
+            rng: np.random.Generator,
+            shade: float,
+            environment_state: EnvironmentState,
+    ) -> bool:
+        """Evaluate mortality and update the tree's status."""
+
+        if self.status == AgentStatus.DEAD:
+            return True
+
+        if self._evaluate_death_outcome(
+                rng=rng,
+                shade=shade,
+                environment_state=environment_state,
+        ):
+            self.status = AgentStatus.DEAD
+            return True
+
+        return False
 
     def produce_seeds(self, rng: np.random.Generator) -> int:
         """Generate a set amount of seeds backed by a random distribution. (Currently only Poisson)"""
@@ -248,3 +283,28 @@ class TreeAgent:
             )
 
         return x_land, y_land, distances
+
+    def mortality_probability(
+            self,
+            shade: float,
+            environment_state: EnvironmentState,
+    ) -> float:
+        """Calculate the annual mortality probability."""
+
+        if not (
+                type_validation.is_finite_real(shade)
+                and 0 <= shade <= 1
+        ):
+            raise ValueError("'shade' must be between 0 and 1.")
+
+        background_mortality = (
+                1 / self.species_config.mean_life_span
+        )
+
+        shade_mortality = (
+                environment_state.shade_mortality
+                * (1 - self.species_config.shade_tolerance)
+                * shade
+        )
+
+        return min(1.0, background_mortality + shade_mortality)

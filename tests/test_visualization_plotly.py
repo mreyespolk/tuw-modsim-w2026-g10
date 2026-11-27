@@ -18,6 +18,7 @@ from tree_propagation.species_config import SPECIES_TRAIT_LABELS, SpeciesConfig
 from tree_propagation.tables import build_species_trait_table
 from tree_propagation.types import DispersalType
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE
+from tree_propagation.models import ForestSnapshot, TreeSnapshot
 
 
 @pytest.fixture(scope="module")
@@ -128,4 +129,178 @@ def test_pioneer_plot_y_range_covers_late_maturing_species(tree_species_config, 
     fig = vpl.plot_pioneer_climax_tradeoff(traits)
 
     assert fig.layout.yaxis.range[1] > 80
+# endregion
+
+# region Forest simulation visualization
+
+def test_forest_animation_frames():
+    history = [
+        ForestSnapshot(year=0, trees=()),
+        ForestSnapshot(year=1, trees=()),
+        ForestSnapshot(year=2, trees=()),
+    ]
+
+    fig = vpl.plot_forest_animation(
+        history=history,
+        rows=10,
+        cols=10,
+        cell_size=5.0,
+        species_names=["Ahorn"],
+    )
+
+    assert isinstance(fig, go.Figure)
+    assert len(fig.frames) == 3
+    assert [frame.name for frame in fig.frames] == ["0", "1", "2"]
+
+
+def test_forest_animation_tree_coordinates():
+    tree = TreeSnapshot(
+        species="Ahorn",
+        age=24,
+        height_class=2,
+        x=12.5,
+        y=7.5,
+    )
+
+    history = [
+        ForestSnapshot(year=0, trees=(tree,))
+    ]
+
+    fig = vpl.plot_forest_animation(
+        history=history,
+        rows=10,
+        cols=10,
+        cell_size=5.0,
+        species_names=["Ahorn"],
+    )
+
+    np.testing.assert_allclose(fig.data[0].x, [12.5])
+    np.testing.assert_allclose(fig.data[0].y, [7.5])
+
+
+def test_forest_animation_preserves_species_traces():
+    history = [
+        ForestSnapshot(
+            year=0,
+            trees=(
+                TreeSnapshot(
+                    species="Ahorn",
+                    age=24,
+                    height_class=2,
+                    x=2.5,
+                    y=2.5,
+                ),
+            ),
+        ),
+        ForestSnapshot(year=1, trees=()),
+    ]
+
+    fig = vpl.plot_forest_animation(
+        history=history,
+        rows=10,
+        cols=10,
+        cell_size=5.0,
+        species_names=["Ahorn", "Buche"],
+    )
+
+    for frame in fig.frames:
+        assert len(frame.data) == 2
+        assert [trace.name for trace in frame.data] == [
+            "Ahorn", "Buche"
+        ]
+
+
+@pytest.mark.parametrize(
+    ("rows", "cols", "cell_size"),
+    [
+        (10, 20, 5.0),
+        (20, 10, 5.0),
+        (10, 10, 2.0),
+    ],
+)
+def test_forest_animation_boundaries(
+    rows: int, cols: int, cell_size: float
+):
+    fig = vpl.plot_forest_animation(
+        history=[ForestSnapshot(year=0, trees=())],
+        rows=rows,
+        cols=cols,
+        cell_size=cell_size,
+        species_names=["Ahorn"],
+    )
+
+    assert tuple(fig.layout.xaxis.range) == (
+        0, cols * cell_size
+    )
+    assert tuple(fig.layout.yaxis.range) == (
+        0, rows * cell_size
+    )
+
+
+def test_forest_population_plot():
+    tree = TreeSnapshot(
+        species="Ahorn",
+        age=24,
+        height_class=2,
+        x=2.5,
+        y=2.5,
+    )
+
+    history = [
+        ForestSnapshot(year=0, trees=(tree,)),
+        ForestSnapshot(year=1, trees=()),
+    ]
+
+    fig = vpl.plot_forest_population(
+        history=history,
+        species_names=["Ahorn"],
+    )
+
+    assert isinstance(fig, go.Figure)
+    assert len(fig.data) == 2
+
+    assert fig.data[0].name == "Ahorn"
+    assert fig.data[-1].name == "Total population"
+
+    np.testing.assert_array_equal(fig.data[0].x, [0, 1])
+    np.testing.assert_array_equal(fig.data[0].y, [1, 0])
+    np.testing.assert_array_equal(fig.data[-1].y, [1, 0])
+
+
+def test_forest_animation_rejects_empty_history():
+    with pytest.raises(ValueError, match="history"):
+        vpl.plot_forest_animation(
+            history=[],
+            rows=10,
+            cols=10,
+            cell_size=5.0,
+            species_names=["Ahorn"],
+        )
+
+
+def test_forest_animation_marker_size_reflects_height():
+    history = [
+        ForestSnapshot(
+            year=0,
+            trees=(
+                TreeSnapshot("Ahorn", 0, 0, 2.5, 2.5),
+                TreeSnapshot("Ahorn", 24, 2, 7.5, 7.5),
+                TreeSnapshot("Ahorn", 60, 5, 12.5, 12.5),
+            ),
+        )
+    ]
+
+    fig = vpl.plot_forest_animation(
+        history=history,
+        rows=10,
+        cols=10,
+        cell_size=5.0,
+        species_names=["Ahorn"],
+    )
+
+    sizes = fig.data[0].marker.size
+
+    assert 0 < sizes[0] < sizes[1] < sizes[2]
+
+
 # endregion

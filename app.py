@@ -25,6 +25,12 @@ from tree_propagation.tables import build_species_trait_table, windrose_to_dataf
 from tree_propagation.types import DispersalType
 from tree_propagation.visualization.common import compute_plot_extent
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
+from tree_propagation.forest import ForestGrid
+
+from tree_propagation.simulation import (
+    ForestSimulation,
+    ForestSimulationParams,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -318,6 +324,217 @@ def render_species_overview_tab(configs: dict[str, SpeciesConfig], controls: Sid
         width="stretch",
     )
 
+@st.cache_data(
+    show_spinner="Simulating forest development...",
+    max_entries=4,
+)
+def run_forest_simulation(
+    configs: dict[str, SpeciesConfig],
+    rows: int,
+    cols: int,
+    cell_size: float,
+    num_trees: int,
+    num_years: int,
+    seed: int,
+    wind_strength: int,
+    establishment_probability: float,
+    shade_mortality: float,
+):
+    """Run a reproducible forest simulation."""
+
+    rng = np.random.default_rng(seed)
+
+    forest = ForestGrid.random(
+        rows=rows,
+        cols=cols,
+        num_trees=num_trees,
+        configs=configs,
+        rng=rng,
+        cell_size=cell_size,
+    )
+
+    environment = EnvironmentState(
+        wind_rose=DEFAULT_WIND_ROSE,
+        wind_strength=wind_strength,
+        establishment_probability=establishment_probability,
+        shade_mortality=shade_mortality,
+    )
+
+    simulation = ForestSimulation(
+        forest=forest,
+        params=ForestSimulationParams(
+            environment_state=environment,
+            num_years=num_years,
+            seed=seed,
+        ),
+        rng=rng,
+    )
+
+    return simulation.run()
+
+def render_forest_simulation_tab(
+    configs: dict[str, SpeciesConfig],
+    controls: SidebarControls,
+) -> None:
+
+    st.header("Forest Simulation")
+
+    st.caption(
+        "Simulate the development of a random forest "
+        "through seed dispersal, competition, "
+        "growth and mortality."
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        rows = st.number_input(
+            "Grid rows",
+            min_value=5,
+            max_value=50,
+            value=20,
+            step=5,
+            key="forest_rows",
+        )
+
+        cols = st.number_input(
+            "Grid columns",
+            min_value=5,
+            max_value=50,
+            value=20,
+            step=5,
+            key="forest_cols",
+        )
+
+    with col2:
+        cell_size = st.number_input(
+            "Cell size (m)",
+            min_value=1.0,
+            max_value=20.0,
+            value=5.0,
+            step=1.0,
+        )
+
+        num_years = st.slider(
+            "Simulation years",
+            min_value=1,
+            max_value=250,
+            value=100,
+        )
+
+    with col3:
+        capacity = rows * cols
+
+        num_trees = st.slider(
+            "Initial population",
+            min_value=0,
+            max_value=capacity,
+            value=min(30, capacity),
+        )
+
+        establishment_probability = st.slider(
+            "Establishment probability",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.5,
+            step=0.05,
+        )
+
+        shade_mortality = st.slider(
+            "Shade mortality (β)",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.3,
+            step=0.05,
+        )
+
+    st.caption(
+        f"Forest area: "
+        f"{cols * cell_size:.0f} × "
+        f"{rows * cell_size:.0f} metres"
+    )
+
+    if st.button(
+        "Run Forest Simulation",
+        type="primary",
+        key="run_forest_simulation",
+    ):
+        history = run_forest_simulation(
+            configs=configs,
+            rows=int(rows),
+            cols=int(cols),
+            cell_size=float(cell_size),
+            num_trees=int(num_trees),
+            num_years=int(num_years),
+            seed=controls.seed,
+            wind_strength=controls.wind_strength,
+            establishment_probability=establishment_probability,
+            shade_mortality=shade_mortality,
+        )
+
+        st.session_state["forest_result"] = {
+            "history": history,
+            "rows": int(rows),
+            "cols": int(cols),
+            "cell_size": float(cell_size),
+            "species_names": tuple(configs.keys()),
+        }
+
+    result = st.session_state.get("forest_result")
+
+    if result is None:
+        st.info("Configure the parameters and run the simulation.")
+        return
+
+    history = result["history"]
+    species_names = result["species_names"]
+
+    initial = history[0]
+    final = history[-1]
+
+    m1, m2, m3, m4 = st.columns(4)
+
+    m1.metric(
+        "Initial population",
+        initial.population,
+    )
+
+    m2.metric(
+        "Final population",
+        final.population,
+        delta=final.population - initial.population,
+    )
+
+    m3.metric(
+        "Remaining species",
+        len(final.species_counts),
+    )
+
+    m4.metric(
+        "Forest occupancy",
+        f"{100 * final.population / (result['rows'] * result['cols']):.1f}%",
+    )
+
+    st.plotly_chart(
+        vpl.plot_forest_animation(
+            history=history,
+            rows=result["rows"],
+            cols=result["cols"],
+            cell_size=result["cell_size"],
+            species_names=species_names,
+        ),
+        width="stretch",
+        key="forest_animation",
+    )
+
+    st.plotly_chart(
+        vpl.plot_forest_population(
+            history=history,
+            species_names=species_names,
+        ),
+        width="stretch",
+        key="forest_population",
+    )
 
 def main() -> None:
     st.set_page_config(page_title="Seed Dispersal Explorer", layout="wide")
@@ -330,8 +547,8 @@ def main() -> None:
 
     controls = render_sidebar()
 
-    tab_sim, tab_wind, tab_species = st.tabs(
-        ["Seed Shadow Simulation", "Wind Rose", "Species Overview"]
+    tab_sim, tab_wind, tab_species, tab_forest = st.tabs(
+        ["Seed Shadow Simulation", "Wind Rose", "Species Overview", "Forest Simulation"]
     )
     with tab_sim:
         render_seed_shadow_tab(configs, controls)
@@ -339,6 +556,8 @@ def main() -> None:
         render_wind_tab(DEFAULT_WIND_ROSE)
     with tab_species:
         render_species_overview_tab(configs, controls)
+    with tab_forest:
+        render_forest_simulation_tab(configs, controls)
 
 
 if __name__ == "__main__":

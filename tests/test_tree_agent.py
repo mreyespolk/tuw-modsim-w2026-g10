@@ -6,6 +6,7 @@ Shared fixtures (rng, ahorn_species_config, north_only_wind_rose) live in confte
 
 import numpy as np
 import pytest
+from unittest.mock import Mock
 
 from tree_propagation.agent import TreeAgent
 from tree_propagation.environment import DEFAULT_ENVIRONMENT_STATE, EnvironmentState
@@ -229,4 +230,110 @@ def test_same_seed_gives_identical_dispersal(ahorn_species_config: SpeciesConfig
         return np.stack(tree.disperse_seeds(rng=rng, environment_state=DEFAULT_ENVIRONMENT_STATE))
 
     np.testing.assert_array_equal(run(123), run(123))
+# endregion
+
+# region Growth and Mortality
+
+def test_growth(ahorn_species_config: SpeciesConfig):
+    tree = _agent_at_age(ahorn_species_config, age=23)
+
+    tree.grow()
+
+    assert tree.age == 24
+    assert tree.height_class == 2
+
+
+def test_growth_at_maximum_height(
+    ahorn_species_config: SpeciesConfig,
+):
+    tree = _agent_at_age(ahorn_species_config, age=500)
+
+    tree.grow()
+
+    assert tree.age == 501
+    assert tree.height_class == ahorn_species_config.maximal_height_class
+
+
+def test_background_mortality(
+    ahorn_species_config: SpeciesConfig,
+):
+    tree = _agent_at_age(ahorn_species_config, age=30)
+    environment = EnvironmentState()
+
+    probability = tree.mortality_probability(
+        shade=0.0,
+        environment_state=environment,
+    )
+
+    assert probability == pytest.approx(
+        1 / ahorn_species_config.mean_life_span
+    )
+
+
+def test_shade_mortality(
+    ahorn_species_config: SpeciesConfig,
+):
+    tree = _agent_at_age(ahorn_species_config, age=30)
+    environment = EnvironmentState(shade_mortality=0.3)
+
+    probability = tree.mortality_probability(
+        shade=1.0,
+        environment_state=environment,
+    )
+
+    expected = (
+        1 / ahorn_species_config.mean_life_span
+        + 0.3 * (1 - ahorn_species_config.shade_tolerance)
+    )
+
+    assert probability == pytest.approx(expected)
+
+
+def test_disabled_shade_mortality(
+    ahorn_species_config: SpeciesConfig,
+):
+    tree = _agent_at_age(ahorn_species_config, age=30)
+    environment = EnvironmentState(shade_mortality=0.0)
+
+    probability = tree.mortality_probability(
+        shade=1.0,
+        environment_state=environment,
+    )
+
+    assert probability == pytest.approx(
+        1 / ahorn_species_config.mean_life_span
+    )
+
+
+def test_tree_dies(ahorn_species_config: SpeciesConfig):
+    tree = _agent_at_age(ahorn_species_config, age=30)
+
+    rng = Mock()
+    rng.random.return_value = 0.0
+
+    died = tree.die(
+        rng=rng,
+        shade=0.0,
+        environment_state=DEFAULT_ENVIRONMENT_STATE,
+    )
+
+    assert died is True
+    assert tree.status == AgentStatus.DEAD
+
+
+def test_tree_survives(ahorn_species_config: SpeciesConfig):
+    tree = _agent_at_age(ahorn_species_config, age=30)
+
+    rng = Mock()
+    rng.random.return_value = 0.99
+
+    died = tree.die(
+        rng=rng,
+        shade=0.0,
+        environment_state=DEFAULT_ENVIRONMENT_STATE,
+    )
+
+    assert died is False
+    assert tree.status == AgentStatus.ALIVE
+
 # endregion

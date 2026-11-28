@@ -25,7 +25,21 @@ from tree_propagation.visualization.common import (
     exponential_pdf,
 )
 from tree_propagation.wind_config import DEFAULT_WIND_ROSE, WindRose
+from tree_propagation.models import ForestSnapshot
 
+SPECIES_COLORS: dict[str, str] = {
+    "Ahorn": "#2E86AB",
+    "Akazie": "#E67E22",
+    "Buche": "#26734D",
+    "Esche": "#9467BD",
+    "Kastanie": "#8C564B",
+    "Kiefer": "#7F7F7F",
+    "Kirsche": "#E377C2",
+    "Linde": "#BCBD22",
+    "Pappel": "#D62728",
+    "Platane": "#17BECF",
+    "Zürgelbaum": "#90BE6D",
+}
 
 @dataclass(frozen=True)
 class DispersalStyle:
@@ -432,6 +446,53 @@ def _add_mean_vline(fig: go.Figure, mean: float, label: str, **subplot: int) -> 
         annotation_position="top right",
         **subplot,  # type: ignore[arg-type]
     )
+
+def _forest_traces(
+    snapshot: ForestSnapshot,
+    species_names: Sequence[str],
+) -> list[go.Scatter]:
+    """Create one scatter trace per species."""
+
+    traces = []
+
+    for species in species_names:
+        trees = [
+            tree for tree in snapshot.trees
+            if tree.species == species
+        ]
+
+        traces.append(
+            go.Scatter(
+                x=[tree.x for tree in trees],
+                y=[tree.y for tree in trees],
+                mode="markers",
+                name=species,
+                marker=dict(
+                    color=SPECIES_COLORS.get(
+                        species, "#888888"
+                    ),
+                    size=[
+                        4 + 2 * tree.height_class
+                        for tree in trees
+                    ],
+                    opacity=0.85,
+                ),
+                customdata=[
+                    [tree.age, tree.height_class]
+                    for tree in trees
+                ],
+                hovertemplate=(
+                    f"<b>{species}</b><br>"
+                    "Age: %{customdata[0]} years<br>"
+                    "Height class: %{customdata[1]}<br>"
+                    "X: %{x:.1f} m<br>"
+                    "Y: %{y:.1f} m"
+                    "<extra></extra>"
+                ),
+            )
+        )
+
+    return traces
 
 
 def plot_simulated_seed_shadow_and_distance_histogram(
@@ -1009,4 +1070,210 @@ def plot_directional_transects(
         },
         margin={"t": 55, "b": 70, "l": 55 if is_vertical else 65, "r": 15},
     )
+    return fig
+
+def plot_forest_animation(
+    history: Sequence[ForestSnapshot],
+    rows: int,
+    cols: int,
+    cell_size: float,
+    species_names: Sequence[str],
+) -> go.Figure:
+    """Animate the spatial development of a forest."""
+
+    if not history:
+        raise ValueError("Forest history cannot be empty.")
+
+    frames = [
+        go.Frame(
+            name=str(snapshot.year),
+            data=_forest_traces(snapshot, species_names),
+            traces=list(range(len(species_names))),
+            layout=go.Layout(
+                title_text=(
+                    f"Year {snapshot.year} | "
+                    f"{snapshot.population} trees"
+                )
+            ),
+        )
+        for snapshot in history
+    ]
+
+    fig = go.Figure(
+        data=_forest_traces(history[0], species_names),
+        frames=frames,
+    )
+
+    fig.update_layout(
+        title=(
+            f"Year {history[0].year} | "
+            f"{history[0].population} trees"
+        ),
+        template="plotly_white",
+        height=650,
+        xaxis=dict(
+            title="East [m]",
+            range=[0, cols * cell_size],
+            autorange=False,
+            dtick=cell_size,
+            showgrid=True,
+            showticklabels=False,
+        ),
+        yaxis=dict(
+            title="North [m]",
+            range=[0, rows * cell_size],
+            autorange=False,
+            dtick=cell_size,
+            showgrid=True,
+            showticklabels=False,
+            scaleanchor="x",
+            scaleratio=1,
+        ),
+        legend_title_text="Species",
+
+        updatemenus=[
+            dict(
+                type="buttons",
+                direction="left",
+                x=0,
+                y=-0.08,
+                buttons=[
+                    dict(
+                        label="Play",
+                        method="animate",
+                        args=[
+                            None,
+                            {
+                                "frame": {
+                                    "duration": 150,
+                                    "redraw": True,
+                                },
+                                "transition": {
+                                    "duration": 0,
+                                },
+                                "fromcurrent": True,
+                                "mode": "immediate",
+                            },
+                        ],
+                    ),
+                    dict(
+                        label="Pause",
+                        method="animate",
+                        args=[
+                            [None],
+                            {
+                                "frame": {
+                                    "duration": 0,
+                                    "redraw": False,
+                                },
+                                "transition": {
+                                    "duration": 0,
+                                },
+                                "mode": "immediate",
+                            },
+                        ],
+                    ),
+                ],
+            )
+        ],
+
+        sliders=[
+            dict(
+                active=0,
+                x=0.18,
+                len=0.82,
+                y=-0.08,
+                currentvalue={
+                    "prefix": "Year: "
+                },
+                steps=[
+                    dict(
+                        label=str(snapshot.year),
+                        method="animate",
+                        args=[
+                            [str(snapshot.year)],
+                            {
+                                "frame": {
+                                    "duration": 0,
+                                    "redraw": True,
+                                },
+                                "transition": {
+                                    "duration": 0,
+                                },
+                                "mode": "immediate",
+                            },
+                        ],
+                    )
+                    for snapshot in history
+                ],
+            )
+        ],
+
+        margin=dict(b=100),
+    )
+
+    return fig
+
+def plot_forest_population(
+    history: Sequence[ForestSnapshot],
+    species_names: Sequence[str],
+) -> go.Figure:
+    """Plot species populations over time."""
+
+    fig = go.Figure()
+
+    years = [
+        snapshot.year for snapshot in history
+    ]
+
+    counts = [
+        snapshot.species_counts
+        for snapshot in history
+    ]
+
+    for species in species_names:
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=[
+                    count.get(species, 0)
+                    for count in counts
+                ],
+                name=species,
+                mode="lines",
+                line=dict(
+                    color=SPECIES_COLORS.get(
+                        species, "#888888"
+                    ),
+                    width=2,
+                ),
+            )
+        )
+
+    fig.add_trace(
+        go.Scatter(
+            x=years,
+            y=[
+                snapshot.population
+                for snapshot in history
+            ],
+            name="Total population",
+            mode="lines",
+            line=dict(
+                color="black",
+                width=3,
+                dash="dash",
+            ),
+        )
+    )
+
+    fig.update_layout(
+        title="Forest Population over Time",
+        xaxis_title="Year",
+        yaxis_title="Number of trees",
+        template="plotly_white",
+        hovermode="x unified",
+        height=450,
+    )
+
     return fig

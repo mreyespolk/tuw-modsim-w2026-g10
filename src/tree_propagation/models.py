@@ -120,3 +120,47 @@ class SeedShadowMetrics:
     rel_error_pct: float
     ks_statistic: float
     ks_pvalue: float
+
+@dataclass(frozen=True)
+class TreeSnapshot:
+    """Immutable state of an individual tree."""
+
+    species: str
+    age: int
+    height_class: int
+    x: float
+    y: float
+
+
+@dataclass(frozen=True)
+class ForestSnapshot:
+    """State of the forest at a particular year."""
+
+    year: int
+    trees: tuple[TreeSnapshot, ...]
+
+    @property
+    def population(self) -> int:
+        return len(self.trees)
+
+    @property
+    def species_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+
+        for tree in self.trees:
+            counts[tree.species] = (
+                counts.get(tree.species, 0) + 1
+            )
+
+        return counts
+
+
+@dataclass(frozen=True)
+class ForestYearStatistics:
+    """Statistics of one annual simulation step."""
+
+    year: int
+    seeds_produced: int
+    births: int
+    deaths: int
+    population: int
